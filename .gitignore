@@ -1,0 +1,35 @@
+# --- Python 相关 ---
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# --- 构建与分发相关 ---
+dist/
+build/
+*.egg-info/
+.installed.cfg
+*.egg
+.eggs/
+
+# --- 数据相关 (按你要求去掉 data 中的内容) ---
+# 如果你想保留 data 文件夹的结构但忽略里面的内容，可以改用：
+data/*
+!data/README.md
+
+# --- 虚拟环境相关 ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- IDE 与编辑器相关 ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- 日志与临时文件 ---
+*.log
+tmp/

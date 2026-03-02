@@ -1,0 +1,32 @@
+# Global ID offsets to prevent overlap across datasets
+ifashion:
+  item_offset: 0
+  outfit_offset: 0
+  user_offset: 0
+  raw_data_path: "/mnt/e/Dataset/iFashion POG 2019"
+  image_dir: "/mnt/e/Dataset/iFashion POG 2019/image"
+  output_path: "./data/ifashion"
+
+polyvoreu:
+  item_offset: 50000  # ifashion has 49357 items
+  outfit_offset: 60000  # ifashion has 58081 outfits
+  user_offset: 3500000  # ifashion has 3440217 users
+  raw_data_path: "/mnt/e/Dataset/Polyuvore-U"
+  image_dir: "/mnt/e/Dataset/Polyuvore-U/images"
+  output_path: "./data/polyvoreu"
+
+fashion32:
+  item_offset: 160000  # polyvore519 has 102148 items
+  outfit_offset: 120000  # polyvore519 has 59563 outfits
+  user_offset: 3501000  # polyvore519 has 519 users
+  raw_data_path: "/mnt/e/Dataset/Fashion 32"
+  image_dir: "/mnt/e/Dataset/Fashion 32/Fashion_Outfits_Theme_Aware"
+  output_path: "./data/fashion32"
+
+polyvore_outfits:
+  item_offset: 190000  # fashion32 has 26925 items
+  outfit_offset: 140000  # fashion32 has 13981 outfits
+  user_offset: 3501000  # polyvore519 has 0 users
+  raw_data_path: "/mnt/e/Dataset/Polyvore-Outfits"
+  image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data"
+  output_path: "./data/polyvore_outfits"

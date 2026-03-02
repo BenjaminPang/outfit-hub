@@ -1,0 +1,17 @@
+huggingface_hub==0.36.0
+matplotlib==3.10.8
+networkx==3.3
+pandas==2.3.3
+Pillow==12.1.0
+PyYAML==6.0.3
+Requests==2.32.5
+# torch==2.9.1+cu128
+# torchvision==0.24.1+cu128
+tqdm==4.67.1
+transformers==4.57.3
+fastparquet==2024.5.0
+wandb==0.24.0
+dotenv==0.9.9
+chromadb==1.4.1
+google-genai==1.64.0
+scikit-learn==1.7.2
