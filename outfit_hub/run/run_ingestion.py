@@ -10,12 +10,12 @@ def main():
     # 2. Run iFashion Processor
     # Supported dataset name: [ifashion, polyvoreu, fashion32, polyvore_outfits]
     proc = get_processor(
-        dataset_name="polyvore_outfits", 
+        dataset_name="ifashion", 
         manager=manager,
-        img_size=(224, 224)
+        img_size=291
     )
     
-    proc.run()
+    proc.run(stage=1)
 
 
 if __name__ == "__main__":
