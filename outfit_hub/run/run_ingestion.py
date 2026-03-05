@@ -8,10 +8,11 @@ def main():
     manager = DatasetManager(config_path="outfit_hub/registry.yaml")
     
     # 2. Run iFashion Processor
-    # Supported dataset name: [ifashion, polyvoreu, fashion32, polyvore_outfits]
+    # Supported dataset name: [ifashion, polyvoreu, fashion32, polyvore_outfits_disjoint, polyvore_outfits_nondisjoint]
+    dataset_name = "ifashion"
     proc = get_processor(
-        dataset_name="ifashion", 
-        manager=manager,
+        dataset_name=dataset_name, 
+        dataset_config=manager.config[dataset_name],
         img_size=291
     )
     

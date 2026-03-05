@@ -79,6 +79,8 @@ class CompatibilityTaskEngine:
             
         print(f"✅ Compatibility Task saved to {output_path}")
 
+        return len(tasks)
+
     @staticmethod
     def load(file_path):
         """

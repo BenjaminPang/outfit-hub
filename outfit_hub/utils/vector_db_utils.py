@@ -11,7 +11,7 @@ class VectorDB:
         self.embeddings_raw = embeddings_raw
 
         # 2. 初始化 ChromaDB (仅用于 top-k 相似度检索)
-        self.client = chromadb.PersistentClient(path=f"./data/vector_db/{dataset_name}")
+        self.client = chromadb.PersistentClient(path=f"./vector_db/{dataset_name}")
         self.collection = self.client.get_or_create_collection(
             name="items_catalog",
             metadata={"hnsw:space": "cosine"}

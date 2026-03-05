@@ -76,6 +76,8 @@ class FITBTaskEngine:
             json.dump(tasks, f, indent=2)
         print(f"FITB Task saved to {output_path}")
 
+        return len(tasks)
+
     @staticmethod
     def transform(file_path):
         """

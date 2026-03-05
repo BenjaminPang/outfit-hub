@@ -14,7 +14,7 @@ from ..utils.vector_db_utils import VectorDB
 
 class iFashionProcessor(BaseProcessor):
     def process_category(self):
-        category_file_path = os.path.join(self.raw_path, "cate_id2text.json")
+        category_file_path = os.path.join(self.root_path, "cate_id2text.json")
         self.raw_category_id2string = {}
         with open(category_file_path, 'r') as f:
             self.raw_category_id2string = json.load(f)
@@ -42,12 +42,12 @@ class iFashionProcessor(BaseProcessor):
 
     def parse_raw_data(self):
         # load item raw data
-        with open(f'{self.raw_path}/item_data.json', 'r') as f:
+        with open(f'{self.root_path}/item_data.json', 'r') as f:
             item_json_data = json.load(f)
         self.itemid2item = {raw_item['item_id']: raw_item for raw_item in item_json_data}
 
         outfitid2userid = {}
-        with open(f'{self.raw_path}/user_data.txt', 'r') as f:
+        with open(f'{self.root_path}/user_data.txt', 'r') as f:
             line_count = 0
             for line in tqdm(f, total=19191117, desc="Loading user data and building outfitid2userid dict"):
                 # line_count += 1
@@ -62,7 +62,7 @@ class iFashionProcessor(BaseProcessor):
         # load outfit raw data
         outfits_data = []
         item_set = set()
-        with open(f"{self.raw_path}/outfit_data.txt", 'r') as f:
+        with open(f"{self.root_path}/outfit_data.txt", 'r') as f:
             line_count = 0
             for line in tqdm(f, total=1013136, desc="Processing outfit data and building outfits_data list and item_set"):
                 # line_count += 1
@@ -132,11 +132,10 @@ class iFashionProcessor(BaseProcessor):
             else:
                 user_outfit_dict[user_id].append(outfit_idx)
 
-
         # We also need to extract test and valid outfit from raw data
-        all_item_image_path = np.load(f'{self.raw_path}/all_item_image_paths.npy',allow_pickle=True)
-        valid_outfit_raw = np.load(f'{self.raw_path}/valid_grd.npy',allow_pickle=True).item()
-        test_outfit_raw = np.load(f'{self.raw_path}/test_grd.npy',allow_pickle=True).item()
+        all_item_image_path = np.load(f'{self.root_path}/all_item_image_paths.npy',allow_pickle=True)
+        valid_outfit_raw = np.load(f'{self.root_path}/valid_grd.npy',allow_pickle=True).item()
+        test_outfit_raw = np.load(f'{self.root_path}/test_grd.npy',allow_pickle=True).item()
 
         for outfits_raw, split in zip([valid_outfit_raw, test_outfit_raw], ['valid', 'test']):
             for outfits in outfits_raw.values():
@@ -161,16 +160,20 @@ class iFashionProcessor(BaseProcessor):
     def process_test(self):
         with open(os.path.join(self.output_path, 'clip_vision_features.pkl'), 'rb') as f:
             clip_feature = pickle.load(f)  # dict type
-        vector_db = VectorDB(self.item_parquet, clip_feature, self.dataset_name)
+        vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name)
 
         output_dir = os.path.join(self.output_path, "eval")
 
         fitb_task_engine = FITBTaskEngine()
+        count_dict = {}
         for split in ['valid', 'test']:
-            fitb_task_engine.generate(self.outfit_parquet, vector_db, output_dir, split=split, pool_size=100)
-        self.supported_tasks.append('fitb')
+            count = fitb_task_engine.generate(self.outfit_df, vector_db, output_dir, split=split, pool_size=100)
+            count_dict[split] = count
+        self.supported_tasks['fitb'] = count_dict
 
         compatibility_task_engine = CompatibilityTaskEngine()
+        count_dict = {}
         for split in ['valid', 'test']:
-            compatibility_task_engine.generate(self.outfit_parquet, vector_db, output_dir, split=split, pool_size=100)
-        self.supported_tasks.append('compatibility')
+            count = compatibility_task_engine.generate(self.outfit_df, vector_db, output_dir, split=split, pool_size=100)
+            count_dict[split] = count
+        self.supported_tasks['compatibility'] = count_dict

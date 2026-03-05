@@ -41,19 +41,19 @@ class BaseProcessor(ABC):
         'source': 'string',
     }
 
-    def __init__(self, dataset_name, manager, img_size=224, chunk_size=50000):
+    def __init__(self, dataset_name, dataset_config, img_size=224, chunk_size=50000):
         self.dataset_name = dataset_name
-        self.manager = manager
+        self.datast_config = dataset_config
         self.img_size = img_size
         self.chunk_size = chunk_size
         self.category_len = 0
-        self.supported_tasks = []
+        self.supported_tasks = {}
         
         # Load paths from registry
-        self.raw_path = manager.config[dataset_name]['raw_data_path']
-        self.image_dir = manager.config[dataset_name]['image_dir']
+        self.root_path = dataset_config['root_path']
+        self.image_dir = dataset_config['image_dir']
 
-        self.output_path = manager.config[dataset_name]['output_path']
+        self.output_path = dataset_config.get('output_path', os.path.join("./data", self.dataset_name))
         os.makedirs(self.output_path, exist_ok=True)
 
         self.itemid2itemidx = {}
@@ -194,14 +194,14 @@ class BaseProcessor(ABC):
         # Save to PKL
         save_path = os.path.join(self.output_path, 'clip_vision_features.pkl')
         with open(save_path, 'wb') as f:
-            pickle.dump(image_features_dict.values(), f)
+            pickle.dump(list(image_features_dict.values()), f)
         
         print(f"Success: Processed {len(image_features_dict)} images. Saved to: {save_path}")
 
     @abstractmethod
     def process_test(self):
         """
-        Every child class should implement this method to generate corresponding test file from raw test data.
+        Every children class should implement this method to generate corresponding test file from raw test data.
         """
 
     def save_metadata(self):
@@ -263,7 +263,6 @@ class BaseProcessor(ABC):
             
         elif stage == 2:
             # 阶段 2：评测任务生成
-            # 如果内存中没有数据（单独运行 Stage 2），则从磁盘加载
             if not self.item_parquet or not self.outfit_parquet:
                 self.load_processed_data()
                 
@@ -278,16 +277,24 @@ class BaseProcessor(ABC):
         For use in the second phase (test generation) standalone runtime.
         """
         print(f"--- Loading processed data for {self.dataset_name} ---")
+        with open(os.path.join(self.output_path, 'category.json'), 'r') as f:
+            self.idx2category = json.load(f)
+        self.category_len = len(self.idx2category)
+
         item_path = os.path.join(self.output_path, 'items.parquet')
         outfit_path = os.path.join(self.output_path, 'outfits.parquet')
         user_path = os.path.join(self.output_path, 'users.parquet')
 
         if os.path.exists(item_path):
-            self.item_parquet = pd.read_parquet(item_path)
+            self.item_df = pd.read_parquet(item_path)
+            self.item_parquet = self.item_df.to_dict('records')
+            self.itemid2itemidx = self.item_df.set_index('item_id')['item_idx'].to_dict()
         if os.path.exists(outfit_path):
-            self.outfit_parquet = pd.read_parquet(outfit_path)
+            self.outfit_df = pd.read_parquet(outfit_path)
+            self.outfit_parquet = self.outfit_df.to_dict('records')
         if os.path.exists(user_path):
-            self.user_parquet = pd.read_parquet(user_path)
+            self.user_df = pd.read_parquet(user_path)
+            self.user_parquet = self.user_df.to_dict('records')
         
         print(f"✅ Loaded: {len(self.item_parquet)} items, {len(self.outfit_parquet)} outfits.")
 
