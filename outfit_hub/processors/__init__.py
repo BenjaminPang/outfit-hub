@@ -8,7 +8,8 @@ from .polyvore_outfits_processor import PolyvoreOutfitsProcessor
 # 建立 名字 -> 类的映射表
 PROCESSOR_MAP = {
     "ifashion": iFashionProcessor,
-    "polyvoreu": PolvyoreUProcessor,
+    "polyvoreu519": PolvyoreUProcessor,
+    "polyvoreu630": PolvyoreUProcessor,
     "fashion32": Fashion32Processor,
     "polyvore_outfits_disjoint": PolyvoreOutfitsProcessor,
     "polyvore_outfits_nondisjoint": PolyvoreOutfitsProcessor,

@@ -3,9 +3,15 @@ ifashion:
   root_path: "/mnt/e/Dataset/iFashion POG 2019"
   image_dir: "/mnt/e/Dataset/iFashion POG 2019/image"
 
-polyvoreu:
-  root_path: "/mnt/e/Dataset/Polyuvore-U"
+polyvoreu519:
+  root_path: "/mnt/e/Dataset/Polyuvore-U/tuples_519"
   image_dir: "/mnt/e/Dataset/Polyuvore-U/images"
+  version: "519"
+
+polyvoreu630:
+  root_path: "/mnt/e/Dataset/Polyuvore-U/tuples_630"
+  image_dir: "/mnt/e/Dataset/Polyuvore-U/images"
+  version: "630"
 
 fashion32:
   root_path: "/mnt/e/Dataset/Fashion 32"

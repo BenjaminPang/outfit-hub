@@ -279,6 +279,7 @@ class BaseProcessor(ABC):
         print(f"--- Loading processed data for {self.dataset_name} ---")
         with open(os.path.join(self.output_path, 'category.json'), 'r') as f:
             self.idx2category = json.load(f)
+        self.category2idx = {v: k for k, v in self.idx2category.items()}
         self.category_len = len(self.idx2category)
 
         item_path = os.path.join(self.output_path, 'items.parquet')
@@ -295,6 +296,7 @@ class BaseProcessor(ABC):
         if os.path.exists(user_path):
             self.user_df = pd.read_parquet(user_path)
             self.user_parquet = self.user_df.to_dict('records')
+            self.userid2useridx = self.user_df.set_index('user_id')['user_idx'].to_dict()
         
         print(f"✅ Loaded: {len(self.item_parquet)} items, {len(self.outfit_parquet)} outfits.")
 
