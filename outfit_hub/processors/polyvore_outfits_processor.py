@@ -3,6 +3,7 @@ import os
 import csv
 import pandas as pd
 from tqdm import tqdm
+import shutil
 
 from .base_processor import BaseProcessor
 from ..tasks import FITBTaskEngine, CompatibilityTaskEngine
@@ -250,6 +251,29 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             count_dict[split] = len(tasks)
 
         self.supported_tasks['compatibility'] = count_dict
+
+    def save_tar(self):
+        """
+        Divide items into chunks and save them into multiple .tar files.
+        This prevents creating excessively large single archives.
+        After save all images to tar, remove the temp image folder.
+        """
+        tar_idx = 0
+        for i in range(0, len(self.item_parquet), self.chunk_size):
+            items_for_current_tar = self.item_parquet[i : i + self.chunk_size]
+            tar_path = os.path.join(self.output_path, f"{tar_idx:03d}.tar")
+            
+            print(f"创建新 Tar 包: {tar_path} (包含 {len(items_for_current_tar)} 张)")
+            self._parallel_save_to_tar(tar_path, items_for_current_tar, max_workers=8, target_size=self.img_size)
+            
+            if len(items_for_current_tar) == self.chunk_size:
+                tar_idx += 1
+
+        if os.path.exists(self.temp_image_save_path):
+            shutil.rmtree(self.temp_image_save_path)
+            print(f"Successfully deleted：{self.temp_image_save_path}")
+        else:
+            print(f"Folder {self.temp_image_save_path} Not existed")
 
     def process_test(self):
         output_dir = os.path.join(self.output_path, "eval")

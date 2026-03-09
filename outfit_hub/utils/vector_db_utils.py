@@ -28,10 +28,9 @@ class VectorDB:
         
         batch_size = 5000
         for i in range(0, len(idxs), batch_size):
-            b_idxs = idxs[i:i+batch_size]
             self.collection.add(
-                ids=b_idxs,
-                embeddings=[self.embeddings_raw.get(int(x)) for x in b_idxs],
+                ids=idxs[i:i+batch_size],
+                embeddings=self.embeddings_raw[i:i+batch_size],
                 metadatas=metadatas[i:i+batch_size]
             )
 

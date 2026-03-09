@@ -1,6 +1,7 @@
 from PIL import Image
 import io
 import os
+import hashlib
 
 
 def process_and_pad_image(img_path: str, target_size=291, bg_color=(255, 255, 255)):
@@ -42,3 +43,16 @@ def process_and_pad_image(img_path: str, target_size=291, bg_color=(255, 255, 25
     except Exception as e:
         print(f"Process image {img_path} failed: {e}")
         return None
+    
+
+def get_image_md5(file_path):
+    # 创建 MD5 对象
+    md5_hash = hashlib.md5()
+    
+    # 必须以 'rb' (二进制只读) 模式打开
+    with open(file_path, "rb") as f:
+        # 分块读取，每次读取 8192 字节
+        for chunk in iter(lambda: f.read(8192), b""):
+            md5_hash.update(chunk)
+            
+    return md5_hash.hexdigest()

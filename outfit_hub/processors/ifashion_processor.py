@@ -48,11 +48,7 @@ class iFashionProcessor(BaseProcessor):
 
         outfitid2userid = {}
         with open(f'{self.root_path}/user_data.txt', 'r') as f:
-            line_count = 0
             for line in tqdm(f, total=19191117, desc="Loading user data and building outfitid2userid dict"):
-                # line_count += 1
-                if line_count > 300000:
-                    break
                 line = line.strip()
                 if not line:
                     continue
@@ -63,12 +59,7 @@ class iFashionProcessor(BaseProcessor):
         outfits_data = []
         item_set = set()
         with open(f"{self.root_path}/outfit_data.txt", 'r') as f:
-            line_count = 0
             for line in tqdm(f, total=1013136, desc="Processing outfit data and building outfits_data list and item_set"):
-                # line_count += 1
-                if line_count > 50000:
-                    break
-
                 line = line.strip()
                 if not line:
                     continue
