@@ -25,4 +25,4 @@ polyvore_outfits_disjoint:
 polyvore_outfits_nondisjoint:
   root_path: "/mnt/e/Dataset/Polyvore-Outfits"
   image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data/nondisjoint"
-  version: nondisjoint
+  version: disjoint

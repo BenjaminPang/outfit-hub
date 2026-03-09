@@ -9,7 +9,7 @@ def main():
     
     # 2. Run iFashion Processor
     # Supported dataset name: [ifashion, polyvoreu519, polyvoreu630, fashion32, polyvore_outfits_disjoint, polyvore_outfits_nondisjoint]
-    dataset_name = "polyvore_outfits_disjoint"
+    dataset_name = "polyvore_outfits_nondisjoint"
     proc = get_processor(
         dataset_name=dataset_name, 
         dataset_config=manager.config[dataset_name],

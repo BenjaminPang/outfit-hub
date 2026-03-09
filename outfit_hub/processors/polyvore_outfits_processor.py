@@ -138,11 +138,8 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
         self.user_parquet = []
 
         print(f"{self.dataset_name} main process finised.\nSummary: Number item: {len(self.item_parquet)}, Number outfit: {len(self.outfit_parquet)}, Number user: {len(self.user_parquet)}")
-        
-    def process_test(self):
-        output_dir = os.path.join(self.output_path, "eval")
 
-        # First transform fitb
+    def _transform_fitb_task(self, output_dir):
         count_dict = {}
         for split in ['valid', 'test']:
             with open(os.path.join(self.root_path, self.version, f'{split}.json'), 'r') as f:
@@ -173,10 +170,10 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
                 candidates = []
                 outfit_candidates = []
                 for n in entry['answers']:
-                    outfit_id, index = n.split('_')
+                    original_outfit_raw_id, index = n.split('_')
                     # -1 because orignal file index start from 1 instead of 0
                     index = int(index) - 1
-                    item_id = outfitrawid2outfit[outfit_id]['items'][index]['item_id']
+                    item_id = outfitrawid2outfit[original_outfit_raw_id]['items'][index]['item_id']
                     candidate_idx = self.itemid2itemidx.get(item_id)
                     if candidate_idx is not None:
                         candidates.append(candidate_idx)
@@ -208,7 +205,7 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             count_dict[split] = len(tasks)
         self.supported_tasks['fitb'] = count_dict
 
-        # Then process compatibility task
+    def _transform_compatibility_task(self, output_dir):
         count_dict = {}
         for split in ['valid', 'test']:
             with open(os.path.join(self.root_path, self.version, f'{split}.json'), 'r') as f:
@@ -253,3 +250,8 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             count_dict[split] = len(tasks)
 
         self.supported_tasks['compatibility'] = count_dict
+
+    def process_test(self):
+        output_dir = os.path.join(self.output_path, "eval")
+        self._transform_fitb_task(output_dir)
+        self._transform_compatibility_task(output_dir)
