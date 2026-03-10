@@ -1,5 +1,5 @@
 # outfit_hub/run/run_ingestion.py
-from outfit_hub.core.manager import DatasetManager
+from outfit_hub.core.loader import DatasetManager
 from outfit_hub.processors import get_processor
 
 

@@ -93,7 +93,7 @@ class Fashion32Processor(BaseProcessor):
 
     def process_test(self):
         with open(os.path.join(self.output_path, 'clip_vision_features.pkl'), 'rb') as f:
-            clip_feature = pickle.load(f)  # dict type
+            clip_feature = pickle.load(f)  # list type
         vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name)
 
         output_dir = os.path.join(self.output_path, "eval")

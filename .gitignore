@@ -22,6 +22,7 @@ venv/
 .venv/
 env/
 ENV/
+.env
 
 # --- IDE 与编辑器相关 ---
 .vscode/

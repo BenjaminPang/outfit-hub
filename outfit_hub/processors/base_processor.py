@@ -235,6 +235,7 @@ class BaseProcessor(ABC):
             "max_outfit_length": int(outfit_df['length'].max()) if 'length' in outfit_df.columns else 0,
             "image_size": self.img_size,
             "supported_tasks": self.supported_tasks,
+            "chunk_size": self.chunk_size,
             "last_processed": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
