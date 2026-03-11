@@ -1,18 +1,18 @@
 # outfit_hub/run/run_ingestion.py
-from outfit_hub.core.loader import DatasetManager
+import yaml
+
 from outfit_hub.processors import get_processor
 
 
 def main():
-    # 1. Init ID Manager
-    manager = DatasetManager(config_path="outfit_hub/registry.yaml")
+    with open("outfit_hub/registry.yaml", 'r') as f:
+        config = yaml.safe_load(f)
     
-    # 2. Run iFashion Processor
     # Supported dataset name: [ifashion, polyvoreu519, polyvoreu630, fashion32, polyvore_outfits_disjoint, polyvore_outfits_nondisjoint]
-    dataset_name = "fashion32"
+    dataset_name = "polyvore_outfits_nondisjoint"
     proc = get_processor(
         dataset_name=dataset_name, 
-        dataset_config=manager.config[dataset_name],
+        dataset_config=config[dataset_name],
         img_size=291
     )
     

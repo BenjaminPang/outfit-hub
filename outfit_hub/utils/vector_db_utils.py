@@ -1,17 +1,19 @@
-import os
+from typing import List
+from tqdm import tqdm
 
 import chromadb
 import pandas as pd
 import numpy as np
 
-class VectorDB:
-    def __init__(self, item_df, embeddings_raw, dataset_name):
-        # 1. 内存中维护一套 ID 和 Embedding 的映射
-        self.item_df = item_df
-        self.embeddings_raw = embeddings_raw
 
-        # 2. 初始化 ChromaDB (仅用于 top-k 相似度检索)
-        self.client = chromadb.PersistentClient(path=f"./vector_db/{dataset_name}")
+class VectorDB:
+    def __init__(self, item_df, embeddings_raw, dataset_name, root='.'):
+        # 内存中维护一套 ID 和 Embedding 的映射
+        self.item_df = item_df
+        self.embeddings_raw = np.stack(embeddings_raw)
+
+        # 初始化 ChromaDB (仅用于 top-k 相似度检索)
+        self.client = chromadb.PersistentClient(path=f"{root}/vector_db/{dataset_name}")
         self.collection = self.client.get_or_create_collection(
             name="items_catalog",
             metadata={"hnsw:space": "cosine"}
@@ -27,7 +29,7 @@ class VectorDB:
         metadatas = self.item_df.to_dict('records')
         
         batch_size = 5000
-        for i in range(0, len(idxs), batch_size):
+        for i in tqdm(range(0, len(idxs), batch_size)):
             self.collection.add(
                 ids=idxs[i:i+batch_size],
                 embeddings=self.embeddings_raw[i:i+batch_size],
@@ -45,9 +47,9 @@ class VectorDB:
             results.append((int(iid), 1.0 - float(dist), meta))  # range [-1, 1], 越大越相似
         return results
 
-    def get_embeddings(self, item_idx):
+    def get_embeddings(self, item_idxs: List[int]):
         """核心加速：直接从内存中的 NumPy 数组切片"""
-        return self.embeddings_raw[item_idx]
+        return self.embeddings_raw[item_idxs]
     
     def __len__(self):
         return self.collection.count()
