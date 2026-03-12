@@ -39,7 +39,7 @@ def upload_data_to_hf(repo_id, local_data_path):
             # 建议在 HF 上直接放在根目录，或者指定 path_in_repo="data"
             path_in_repo=".", 
             # 过滤掉不需要的文件（可选）
-            ignore_patterns=["*.pyc", "__pycache__", ".DS_Store", '.jpg', '.png'],
+            ignore_patterns=["*.pyc", "__pycache__", ".DS_Store", '.jpg', '.png', "temp_images"],
             commit_message=f"Update README.md"
         )
         print("🎉 上传成功！")
