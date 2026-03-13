@@ -154,8 +154,8 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             for entry in tqdm(fitb_raw_data, desc=f"Generating FITB Tasks for {split}"):
                 add_this_question = True
                 target_pos = int(entry['blank_position']) - 1
-                original_outfit_raw_id = entry['question'][0].split('_')[0]
-                original_outfit = outfitrawid2outfit[original_outfit_raw_id]
+                original_outfit_context_id = entry['question'][0].split('_')[0]
+                original_outfit = outfitrawid2outfit[original_outfit_context_id]
                 item_idxs = []
                 for x in original_outfit['items']:
                     item_idx = self.itemid2itemidx.get(x['item_id'])
@@ -170,12 +170,16 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
 
                 candidates = []
                 outfit_candidates = []
-                for n in entry['answers']:
-                    original_outfit_raw_id, index = n.split('_')
+                gt_outfit_label = -1
+                for i, n in enumerate(entry['answers']):
+                    original_outfit_candidate_id, index = n.split('_')
                     # -1 because orignal file index start from 1 instead of 0
                     index = int(index) - 1
-                    item_id = outfitrawid2outfit[original_outfit_raw_id]['items'][index]['item_id']
+                    item_id = outfitrawid2outfit[original_outfit_candidate_id]['items'][index]['item_id']
                     candidate_idx = self.itemid2itemidx.get(item_id)
+
+                    if original_outfit_context_id == original_outfit_candidate_id:
+                        gt_outfit_label = i
                     if candidate_idx is not None:
                         candidates.append(candidate_idx)
                     else:
@@ -186,11 +190,11 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
                     outfit_candidate[target_pos] = candidate_idx
                     outfit_candidates.append(outfit_candidate)
 
-                if add_this_question:
+                if add_this_question and gt_outfit_label != -1:
                     gt_item_idx = item_idxs[target_pos]
                     tasks.append({
                         "outfit_candidates": outfit_candidates, # Some methods can directly use this to evaluate
-                        "gt_outfit_label": 0,  # GT is the first candidate
+                        "gt_outfit_label": gt_outfit_label,  # GT is the first candidate
                         "original_outfit": item_idxs,
                         "blank_position": target_pos,
                         "gt_item_idx": gt_item_idx,
