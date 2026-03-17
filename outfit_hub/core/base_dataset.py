@@ -1,10 +1,9 @@
 #outfit_hub/core/base_dataset.py
 import os
-import tarfile
-import io
 import json
-import pickle
 
+import torch
+import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
@@ -14,10 +13,12 @@ from ..utils.vector_db_utils import VectorDB
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, split='train', transform=None):
+    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', max_seq_length=9, transform=None, load_clip=True, load_img=False):
         with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
             self.dataset_config = json.load(f)[dataset_name]
             self.dataset_name = dataset_name
+            self.dataset_idx = dataset_idx
+            self.max_seq_length = max_seq_length
             self.chunk_size = self.dataset_config.get('chunk_size', 50000)
             self.supported_tasks = []
             for k, v in self.dataset_config['supported_tasks'].items():
@@ -26,6 +27,8 @@ class BaseOutfitDataset(Dataset):
         self.root_dir = root_dir
         self.dataset_dir = os.path.join(root_dir, dataset_name)
         self.split = split
+        self.load_clip = load_clip
+        self.load_img = load_img
         
         # 加载标准表
         self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
@@ -42,6 +45,14 @@ class BaseOutfitDataset(Dataset):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+
+        self.clip_feature_path = os.path.join(self.dataset_dir, 'clip_vision_features.npy')
+        self._clip_features = np.memmap(
+            self.clip_feature_path, 
+            dtype='float32', 
+            mode='r', 
+            shape=(len(self.items_df), 512)
+        )
         
         # 句柄缓存 (Lazy Loading)
         self.tar_handles = {}
@@ -50,41 +61,31 @@ class BaseOutfitDataset(Dataset):
     def vector_db(self):
         if self._vector_db is None:
             print("🔍 Initializing VectorDB on demand...")
-            # 执行加载逻辑
-            clip_features_path = os.path.join(self.dataset_dir, 'clip_vision_features.pkl')
-            with open(clip_features_path, 'rb') as f:
-                self.clip_features = pickle.load(f)  # list type
-            self._vector_db = VectorDB(self.items_df, self.clip_features, self.dataset_name, self.root_dir)
+            self._vector_db = VectorDB(self.items_df, self._clip_features, self.dataset_name, self.root_dir)
         return self._vector_db
-
-    def _get_tar_path(self, item_idx):
-        """根据 item_idx 计算 tar 文件的绝对路径"""
-        tar_idx = item_idx // self.chunk_size
-        return os.path.join(self.dataset_dir, f"{tar_idx:03d}.tar")
-
-    def load_img_from_tar(self, item_idx, return_tensor=True):
-        """从 Tar 包读取单张图片"""
-        path = self._get_tar_path(item_idx)
+    
+    def get_clip_feature(self, item_idx):
+        feat = self._clip_features[item_idx]
+        if isinstance(feat, np.ndarray):
+            feat_writable = feat.copy() 
+            return torch.from_numpy(feat_writable).float()
+        else:
+            return torch.tensor(feat).float()
+    
+    def get_image(self, item_idx, return_tensor=True):
+        """
+        Priority 1: Load from 'images/' directory (Fastest)
+        Priority 2: Fallback to Tar archives (If images/ folder is missing)
+        """
+        img_path = os.path.join(self.dataset_dir, 'images', f"{item_idx}.jpg")
         
-        if path not in self.tar_handles:
-            if not os.path.exists(path):
-                raise FileNotFoundError(f"Tar not found: {path}")
-            self.tar_handles[path] = tarfile.open(path, "r")
-            
-        try:
-            tar = self.tar_handles[path]
-            member_name = f"{item_idx}.jpg"
-            member = tar.getmember(member_name)
-            f = tar.extractfile(member)
-            img = Image.open(io.BytesIO(f.read())).convert('RGB')
-            if return_tensor:
-                return self.transform(img)
-            else:
-                return img
-        except Exception as e:
-            # 如果读取失败，返回全黑图（建议在训练时排查此类问题）
-            print(f"Error loading image {item_idx}: {e}")
-            return self._error_placeholder(return_tensor)
+        if os.path.exists(img_path):
+            try:
+                img = Image.open(img_path).convert('RGB')
+                return self.transform(img) if return_tensor else img
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to load {img_path}, error: {e}")
+                return None
 
     def __len__(self):
         return len(self.outfits_df)

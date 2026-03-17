@@ -1,3 +1,4 @@
+# utils/vector_db_utils.py
 from typing import List
 from tqdm import tqdm
 
@@ -10,7 +11,7 @@ class VectorDB:
     def __init__(self, item_df, embeddings_raw, dataset_name, root='.'):
         # 内存中维护一套 ID 和 Embedding 的映射
         self.item_df = item_df
-        self.embeddings_raw = np.stack(embeddings_raw)
+        self.embeddings_raw = embeddings_raw
 
         # 初始化 ChromaDB (仅用于 top-k 相似度检索)
         self.client = chromadb.PersistentClient(path=f"{root}/vector_db/{dataset_name}")

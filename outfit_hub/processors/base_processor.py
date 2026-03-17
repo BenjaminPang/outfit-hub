@@ -10,7 +10,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 from tqdm import tqdm
-import pickle
+import numpy as np
 
 from ..utils.image_utils import process_and_pad_image
 from ..utils.clip_utils import ClipEmbedding
@@ -141,12 +141,16 @@ class BaseProcessor(ABC):
     def process_clip(self, batch_size: int = 4096):
         """
         Extracts only CLIP image features from preprocessed TAR files.
-        Saves a dictionary: {item_idx: image_embedding_numpy} to a PKL file.
+        Saves to numpy memmap format file.
         """
         print(f"--- Extracting Image CLIP Features: {self.dataset_name} ---")
         
         clip_tool = ClipEmbedding()
-        image_features_dict = {}
+        # image_features_dict = {}
+        num_items = len(self.item_df)
+        feature_dim = 512
+        save_path = os.path.join(self.output_path, 'clip_vision_features.npy')
+        fp = np.memmap(save_path, dtype='float32', mode='w+', shape=(num_items, feature_dim))
 
         # Iterate through each TAR chunk
         current_tar_idx = 0
@@ -185,18 +189,14 @@ class BaseProcessor(ABC):
                     # Inference: Image only
                     img_embs = clip_tool.get_image_features(batch_bytes)
                     
-                    # Update main dictionary
                     for j, idx in enumerate(batch_idxs):
-                        image_features_dict[idx] = img_embs[j]
+                        if idx < num_items:
+                            fp[idx, :] = img_embs[j]
             
             current_tar_idx += 1
-
-        # Save to PKL
-        save_path = os.path.join(self.output_path, 'clip_vision_features.pkl')
-        with open(save_path, 'wb') as f:
-            pickle.dump(list(image_features_dict.values()), f)
         
-        print(f"Success: Processed {len(image_features_dict)} images. Saved to: {save_path}")
+        print(f"✨ Success: Processed {num_items} items. Saved to: {save_path}")
+        del fp
 
     @abstractmethod
     def process_test(self):

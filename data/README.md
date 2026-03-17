@@ -4,7 +4,69 @@ This directory contains standardized fashion outfit datasets processed by **Outf
 
 **Hugging Face Repository**: [pangkaicheng/outfit-hub-datasets](https://huggingface.co/datasets/pangkaicheng/outfit-hub-datasets)
 
----
+## 🚀 Data Preparation
+
+### 1. Setup
+First, clone the repository and install it as a package.
+```bash
+git clone https://github.com/BenjaminPang/outfit-hub.git
+cd outfit_hub
+pip install -e .
+```
+
+### 2. Download Pre-processed Datasets
+Currently, all datasets listed in the Supported Datasets section have been standardized and are hosted on Hugging Face. You can download them directly using the built-in script:
+
+Modify the download section in ./outfit_hub/run/sync_hf.sh to ensure the path points to your local data directory, then run:
+
+```Bash
+# Grant execution permissions and run
+chmod +x ./outfit_hub/run/sync_hf.sh
+./outfit_hub/run/sync_hf.sh
+```
+
+This command will automatically download all .parquet metadata, .npy vision features, and sharded image .tar archives from Hugging Face.
+
+
+### 3. Processing from Raw Data (Ingestion)
+If you possess the raw datasets and wish to run the standardization pipeline yourself, use `run_ingestion.py` to control the processing stages:
+
+```Python
+# Set the dataset_name in outfit_hub/run/run_ingestion.py
+dataset_name = "DATASET_NAME"
+
+# Run specific stages
+proc.run(stage=1)  # Stage 1: Data cleaning, indexing, image packaging, and CLIP extraction
+proc.run(stage=2)  # Stage 2: Evaluation task generation (FITB/Compatibility) and metadata summary
+```
+
+Stage 1: The core flow includes process_category (category unification), parse_raw_data (index building), save_parquet (metadata storage), save_tar (image packaging), and process_clip (vision feature extraction).
+
+Stage 2: Focuses on evaluation logic, including process_test (generating standardized test sets) and save_metadata (updating global metadata.json).
+
+### 4. Extension: Implementing New Datasets
+To support a new dataset, you need to inherit from the BaseProcessor class and override the following three key abstract methods:
+
+* `process_category(self)`: Handle raw category strings, establish `idx: string` mappings, and save them to `category.json`.
+
+* `parse_raw_data(self)`: Establish relationships between Users, Outfits and Items, generating metadata lists that conform to the schema.
+
+* `process_test(self)`: Convert raw test data into the unified `eval/*.json` format (e.g., Compatibility Prediction and FITB tasks).
+
+### 5. Image Extraction and Access
+For high-efficiency IO with large-scale data, images are stored in sharded .tar archives by default. If you need direct access to .jpg files for training process, it is recommended to extract all images for the current dataset:
+
+```Bash
+chmod +x ./outfit_hub/run/extract_tar.sh
+./outfit_hub/run/extract_tar.sh
+```
+
+Extract a specific Tar archive to a target directory:
+
+```Bash
+tar -xvf data/dataset_name/000.tar -C data/dataset_name/
+```
+
 
 ## 📂 Supported Datasets
 

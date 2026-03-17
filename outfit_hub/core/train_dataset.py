@@ -1,3 +1,6 @@
+import json
+import random
+
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import ConcatDataset, DataLoader
@@ -8,20 +11,29 @@ from .base_dataset import BaseOutfitDataset
 class OutfitTrainDataset(BaseOutfitDataset):
     def __getitem__(self, idx):
         row = self.outfits_df.iloc[idx]
-        item_indices = row['item_indices'] # List of ints
+        item_indices = row['item_indices']
+        if isinstance(item_indices, str):
+            item_indices = json.loads(item_indices)
+        item_indices = [int(i) for i in item_indices] # List of ints
+        if len(item_indices) > self.max_seq_length:
+            if self.split == "train":
+                item_indices = random.sample(item_indices, self.max_seq_length)
+            else:
+                item_indices = item_indices[:self.max_seq_length]
         
         # 默认只返回索引，灵活性留给子类
         data = {
+            "outfit_idx": idx,
             "item_indices": torch.tensor(item_indices, dtype=torch.long),
             "length": len(item_indices),
-            "source": self.dataset_name,
+            "dataset_idx": self.dataset_idx,
         }
         
         if self.load_img:
-            data["item_imgs"] = torch.stack([self._load_img_from_tar(i) for i in item_indices])
+            data["item_imgs"] = torch.stack([self.get_image(idx) for idx in item_indices])
 
         if self.load_clip:
-            data["item_embeddings"] = torch.stack([self.clip_features[i] for i in item_indices])
+            data["item_embeddings"] = torch.stack([self.get_clip_feature(idx) for idx in item_indices])
             
         return data
 
@@ -38,6 +50,7 @@ class OutfitTrainDataset(BaseOutfitDataset):
         res = {
             "item_idxs": padded_idxs,
             "mask": mask,
+            "dataset_idxs": torch.tensor([item["dataset_idx"] for item in batch], dtype=torch.long),
             "outfit_idxs": torch.tensor([item["outfit_idx"] for item in batch])
         }
 
@@ -52,23 +65,22 @@ class OutfitTrainDataset(BaseOutfitDataset):
         return res
 
 
-def get_combined_loader(dataset_configs, split='train', batch_size=32, **kwargs):
+def get_combined_loader(dataset_names, root_dir="./data", split='train', batch_size=32, num_workers=4, max_seq_length=9, pin_memory=True, transform=None, load_clip=True, load_img=False):
     """
-    dataset_configs: List[dict], such as:
-    [
-        {"name": "polyvoreu519", "load_img": True},
-        {"name": "ifashion", "load_img": True}
-    ]
+    dataset_configs: List[str], such as:
+    ["polyvoreu519", "ifashion"]
     """
     datasets = []
-    
-    for config in dataset_configs:
+    for ds_idx, name in enumerate(dataset_names):
         ds = OutfitTrainDataset(
-            root_dir="data", 
-            dataset_name=config['name'], 
+            root_dir=root_dir, 
+            dataset_name=name, 
+            dataset_idx=ds_idx,
             split=split,
-            load_img=config.get('load_img', False),
-            **kwargs
+            max_seq_length=max_seq_length,
+            transform=transform,
+            load_clip=load_clip,
+            load_img=load_img,
         )
         datasets.append(ds)
 
@@ -77,8 +89,8 @@ def get_combined_loader(dataset_configs, split='train', batch_size=32, **kwargs)
     return DataLoader(
         combined_dataset, 
         batch_size=batch_size, 
-        shuffle=(split == 'train'),
+        shuffle=(split == "train"),
         collate_fn=OutfitTrainDataset.collate_fn,
-        num_workers=4,
-        pin_memory=True
+        num_workers=num_workers,
+        pin_memory=pin_memory
     )

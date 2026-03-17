@@ -58,5 +58,5 @@ def upload_repo(repo, type, path, token, files=None):
             folder_path=path,
             repo_id=repo,
             repo_type=type,
-            ignore_patterns=[".*", "__pycache__", ".DS_Store", '*.jpg', '*.png', "temp_images/**", "*.bak", "vector_db/**"],
+            ignore_patterns=[".*", "*.pkl", "__pycache__", ".DS_Store", '*.jpg', '*.png', "images/**", "temp_images/**", "*.bak", "vector_db/**"],
         )
