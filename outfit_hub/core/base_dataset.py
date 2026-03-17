@@ -32,6 +32,7 @@ class BaseOutfitDataset(Dataset):
         
         # 加载标准表
         self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
+        self.num_items = len(self.items_df)
         self.outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
         self._vector_db = None
             
@@ -51,11 +52,8 @@ class BaseOutfitDataset(Dataset):
             self.clip_feature_path, 
             dtype='float32', 
             mode='r', 
-            shape=(len(self.items_df), 512)
+            shape=(self.num_items, 512)
         )
-        
-        # 句柄缓存 (Lazy Loading)
-        self.tar_handles = {}
 
     @property
     def vector_db(self):

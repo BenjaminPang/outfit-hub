@@ -3,12 +3,15 @@ import random
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import ConcatDataset, DataLoader
 
 from .base_dataset import BaseOutfitDataset
     
 
-class OutfitTrainDataset(BaseOutfitDataset):
+class OutfitSequenceDataset(BaseOutfitDataset):
+    """
+    Generic Sequence Dataset: Responsible for extracting complete outfit items and their associated features.
+    Applicable Scenarios: Behavior Cloning (BC), Autoencoding, Basic Feature Extraction, etc.
+    """
     def __getitem__(self, idx):
         row = self.outfits_df.iloc[idx]
         item_indices = row['item_indices']
@@ -65,32 +68,67 @@ class OutfitTrainDataset(BaseOutfitDataset):
         return res
 
 
-def get_combined_loader(dataset_names, root_dir="./data", split='train', batch_size=32, num_workers=4, max_seq_length=9, pin_memory=True, transform=None, load_clip=True, load_img=False):
+class OutfitValueDataset(BaseOutfitDataset):
     """
-    dataset_configs: List[str], such as:
-    ["polyvoreu519", "ifashion"]
+    Value Function Dataset: Used to train the Value Head (VH).
+    Purpose: By constructing positive, negative, and incomplete samples, it enables the model to learn how to evaluate the state of the current combination.
     """
-    datasets = []
-    for ds_idx, name in enumerate(dataset_names):
-        ds = OutfitTrainDataset(
-            root_dir=root_dir, 
-            dataset_name=name, 
-            dataset_idx=ds_idx,
-            split=split,
-            max_seq_length=max_seq_length,
-            transform=transform,
-            load_clip=load_clip,
-            load_img=load_img,
-        )
-        datasets.append(ds)
+    def __getitem__(self, idx):
+        row = self.outfits_df.iloc[idx]
+        item_indices = row['item_indices']
+        if isinstance(item_indices, str):
+            item_indices = json.loads(item_indices)
 
-    combined_dataset = ConcatDataset(datasets)
-    
-    return DataLoader(
-        combined_dataset, 
-        batch_size=batch_size, 
-        shuffle=(split == "train"),
-        collate_fn=OutfitTrainDataset.collate_fn,
-        num_workers=num_workers,
-        pin_memory=pin_memory
-    )
+        item_indices = item_indices[:self.max_seq_length]
+
+        full_embeds = torch.stack([self.get_clip_feature(int(i)) for i in item_indices])
+        outfit_length = full_embeds.size(0)
+
+        mode = random.random()
+        if mode < 0.5:
+            # 模式 A: 正样本-已完成 (Label: [1, 1])
+            embeddings = full_embeds
+            label = [0.9, 0.9]
+            
+        elif mode < 0.7:
+            # 模式 B: 正样本-未完成 (Label: [1, -1])
+            # 随机截断，保留至少 1 个单品
+            if outfit_length > 1:
+                cut_len = random.randint(1, outfit_length - 1)
+                embeddings = full_embeds[:cut_len]
+            else:
+                embeddings = full_embeds
+            label = [0.9, -0.9]
+            
+        else:
+            # 模式 C: 负样本-逻辑毁坏 (Label: [-1, -1])
+            # 随机替换其中一个位置
+            embeddings = full_embeds.clone()
+            replace_pos = random.randint(0, outfit_length - 1)
+            random_idx = random.randint(0, self.num_items - 1)
+            embeddings[replace_pos] = self.get_clip_feature(random_idx)
+            label = [-0.9, -0.9] # 只要坏了，就不管完不完成，全部标负
+        
+        return {
+            "embeddings": embeddings,
+            "label": torch.tensor(label, dtype=torch.float)
+        }
+
+    @staticmethod
+    def collate_fn(batch):
+        embs = [item["embeddings"] for item in batch]
+        labels = [item["label"] for item in batch]
+        padded_embs = pad_sequence(embs, batch_first=True, padding_value=0.0)
+        
+        # 生成 mask
+        batch_size = padded_embs.size(0)
+        max_len = padded_embs.size(1)
+        mask = torch.ones(batch_size, max_len, dtype=torch.bool)
+        for i, outfit_embs in enumerate(embs):
+            mask[i, :len(outfit_embs)] = False
+            
+        return {
+            "item_embeddings": padded_embs,
+            "mask": mask,
+            "labels": torch.stack(labels) # [B, 2]
+        }

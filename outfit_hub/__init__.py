@@ -1,4 +1,5 @@
-from .core.train_dataset import OutfitTrainDataset, get_combined_loader
+from .core.loader import get_combined_loader
+from .core.train_dataset import OutfitSequenceDataset, OutfitValueDataset
 from .core.eval_dataset import FITBEvalDataset, CompEvalDataset
 from .utils.sync_hf_utils import download_repo, upload_repo
 
@@ -6,7 +7,8 @@ from .utils.sync_hf_utils import download_repo, upload_repo
 __version__ = "0.0.1"
 __all__ = [
     "get_combined_loader",
-    "OutfitTrainDataset",
+    "OutfitSequenceDataset",
+    "OutfitValueDataset",
     "FITBEvalDataset",
     "CompEvalDataset",
     "download_repo",
