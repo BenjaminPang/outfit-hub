@@ -19,7 +19,6 @@ class BaseOutfitDataset(Dataset):
             self.dataset_name = dataset_name
             self.dataset_idx = dataset_idx
             self.max_seq_length = max_seq_length
-            self.chunk_size = self.dataset_config.get('chunk_size', 50000)
             self.supported_tasks = []
             for k, v in self.dataset_config['supported_tasks'].items():
                 self.supported_tasks.extend([k + "_" + task for task in v.keys()])
@@ -48,12 +47,13 @@ class BaseOutfitDataset(Dataset):
         ])
 
         self.clip_feature_path = os.path.join(self.dataset_dir, 'clip_vision_features.npy')
-        self._clip_features = np.memmap(
-            self.clip_feature_path, 
-            dtype='float32', 
-            mode='r', 
-            shape=(self.num_items, 512)
-        )
+        if self.load_clip:
+            self._clip_features = np.memmap(
+                self.clip_feature_path, 
+                dtype='float32', 
+                mode='r', 
+                shape=(self.num_items, 512)
+            )
 
     @property
     def vector_db(self):

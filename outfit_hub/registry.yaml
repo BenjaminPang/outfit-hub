@@ -19,10 +19,10 @@ fashion32:
 
 polyvore_outfits_disjoint:
   root_path: "/mnt/e/Dataset/Polyvore-Outfits"
-  image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data/disjoint"
+  image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data/image"
   version: disjoint
 
 polyvore_outfits_nondisjoint:
   root_path: "/mnt/e/Dataset/Polyvore-Outfits"
-  image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data/nondisjoint"
+  image_dir: "/mnt/e/Dataset/Polyvore-Outfits/data/image"
   version: nondisjoint

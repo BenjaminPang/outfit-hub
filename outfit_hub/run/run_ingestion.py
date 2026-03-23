@@ -9,7 +9,7 @@ def main():
         config = yaml.safe_load(f)
     
     # Supported dataset name: [ifashion, polyvoreu519, polyvoreu630, fashion32, polyvore_outfits_disjoint, polyvore_outfits_nondisjoint]
-    dataset_name = "polyvore_outfits_nondisjoint"
+    dataset_name = "ifashion"
     proc = get_processor(
         dataset_name=dataset_name, 
         dataset_config=config[dataset_name],

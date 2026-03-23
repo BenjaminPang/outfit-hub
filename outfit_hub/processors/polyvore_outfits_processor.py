@@ -1,20 +1,15 @@
 import json
 import os
 import csv
-import pandas as pd
 from tqdm import tqdm
-import shutil
 
 from .base_processor import BaseProcessor
-from ..tasks import FITBTaskEngine, CompatibilityTaskEngine
 
 
 class PolyvoreOutfitsProcessor(BaseProcessor):
     def __init__(self, dataset_name, dataset_config, img_size=224, chunk_size=50000):
         super().__init__(dataset_name, dataset_config, img_size, chunk_size)
         self.version = dataset_config['version']
-        self.temp_image_save_path = os.path.join(self.output_path, "temp_images")
-        os.makedirs(self.temp_image_save_path, exist_ok=True)
 
     def process_category(self):
         category_file_path = os.path.join(self.root_path, "categories.csv")
@@ -37,42 +32,14 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
         with open(save_path, 'w') as f:
             json.dump(self.idx2category, f, indent=2)
 
-    def _save_image_from_parquet(self, item_id, image_byte):
-        """
-        将 parquet 中的字节流保存为临时图片文件
-        """       
-        # 3. 构造完整的文件路径（根据图片内容，通常是 .jpg）
-        full_file_path = os.path.join(self.temp_image_save_path, f"{item_id}.jpg")
-        if os.path.exists(full_file_path):
-            return True
-    
-        try:
-            with open(full_file_path, "wb") as f:
-                f.write(image_byte)
-            return True
-        except Exception as e:
-            print(f"Error saving image {item_id}: {e}")
-            return False
-
     def _is_image_valid(self, item_id):
-        result = self.image_data[self.image_data['item_id'] == item_id]
-        
-        if result.empty:  # Pandas 推荐使用 .empty 检查是否为空
-            return False
-        
-        try:
-            image_byte = result.iloc[0]["image.bytes"]
-            return self._save_image_from_parquet(item_id, image_byte)
-            
-        except Exception as e:
-            # 捕获可能出现的其他错误（如字段缺失或 IO 错误）
-            print(f"Error processing item {item_id}: {e}")
+        image_path = os.path.join(self.image_dir, f"{item_id}.jpg")
+        if os.path.exists(image_path):
+            return True
+        else:
             return False
 
     def parse_raw_data(self):
-        # Load image parquet
-        self.image_data = pd.concat([pd.read_parquet(os.path.join(self.image_dir, f"{fn}.parquet")) for fn in ["train", "validation", "test"]], ignore_index=True)
-
         with open(os.path.join(self.root_path, 'polyvore_item_metadata.json'), 'r') as f:
             item_metadata = json.load(f)
 
@@ -91,7 +58,7 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
                         add_this_outfit = False
                         break
 
-                if len(item_ids) > 2 and add_this_outfit:
+                if len(item_ids) > 1 and add_this_outfit:
                     outfits_data.append({
                         "item_ids": item_ids,
                         "split": split
@@ -110,7 +77,7 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
                 'category_idx': category_idx,
                 'category_id': category_id,
                 'category': category,
-                'ori_path': os.path.join(self.temp_image_save_path, f"{item_id}.jpg"),
+                'ori_path': os.path.join(self.image_dir, f"{item_id}.jpg"),
                 'source': self.dataset_name,
             }
             self.item_parquet.append(item_entry)
@@ -272,12 +239,6 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             
             if len(items_for_current_tar) == self.chunk_size:
                 tar_idx += 1
-
-        if os.path.exists(self.temp_image_save_path):
-            shutil.rmtree(self.temp_image_save_path)
-            print(f"Successfully deleted：{self.temp_image_save_path}")
-        else:
-            print(f"Folder {self.temp_image_save_path} Not existed")
 
     def process_test(self):
         output_dir = os.path.join(self.output_path, "eval")

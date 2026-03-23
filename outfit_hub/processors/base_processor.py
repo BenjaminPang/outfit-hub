@@ -146,8 +146,7 @@ class BaseProcessor(ABC):
         print(f"--- Extracting Image CLIP Features: {self.dataset_name} ---")
         
         clip_tool = ClipEmbedding()
-        # image_features_dict = {}
-        num_items = len(self.item_df)
+        num_items = len(self.item_parquet)
         feature_dim = 512
         save_path = os.path.join(self.output_path, 'clip_vision_features.npy')
         fp = np.memmap(save_path, dtype='float32', mode='w+', shape=(num_items, feature_dim))
