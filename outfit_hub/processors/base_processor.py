@@ -259,10 +259,10 @@ class BaseProcessor(ABC):
 
         if stage == 1:
             # 阶段 1：数据清洗与特征提取
-            # self.process_category()
-            # self.parse_raw_data()
-            # self.save_parquet()  # transform metadata and embedding into parquet and save to output_path
-            # self.save_tar()  # save preprocessed image file to output_path
+            self.process_category()
+            self.parse_raw_data()
+            self.save_parquet()  # transform metadata and embedding into parquet and save to output_path
+            self.save_tar()  # save preprocessed image file to output_path
             self.process_clip()  # Extract clip feature from image file
             
         elif stage == 2:
