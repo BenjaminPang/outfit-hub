@@ -13,6 +13,7 @@ from ..utils.vector_db_utils import VectorDB
 
 
 class iFashionProcessor(BaseProcessor):
+    include_description = True
     def process_category(self):
         category_file_path = os.path.join(self.root_path, "cate_id2text.json")
         self.raw_category_id2string = {}
@@ -80,17 +81,19 @@ class iFashionProcessor(BaseProcessor):
                     item_set.update(item_ids)
 
         # Process item data
-        for idx, item_id in enumerate(item_set):
+        for idx, item_id in enumerate(sorted(list(item_set))):
             # process metadata
             category_id = self.itemid2item[item_id]['cate_id']
             category = self.raw_category_id2string.get(category_id, "")
             category_idx = self.category2idx[category]
+            description = self.itemid2item[item_id]['title'].strip()
             item_entry = {
                 'item_idx': idx,
                 'item_id': item_id,
                 'category_idx': category_idx,
                 'category_id': category_id,
                 'category': category,
+                'description': description,
                 'ori_path': os.path.join(self.image_dir, category, f"{item_id}.png"),
                 'source': self.dataset_name,
             }
@@ -149,9 +152,13 @@ class iFashionProcessor(BaseProcessor):
         print(f"{self.dataset_name} main process finised.\nSummary: Number item: {len(self.item_parquet)}, Number outfit: {len(self.outfit_parquet)}, Number user: {len(self.user_parquet)}")
 
     def process_test(self):
-        with open(os.path.join(self.output_path, 'clip_vision_features.pkl'), 'rb') as f:
-            clip_feature = pickle.load(f)  # dict type
-        vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name)
+        clip_feature = np.memmap(
+            os.path.join(self.output_path, 'clip_vision_features.npy'),
+            dtype='float32',
+            mode='r',
+            shape=(len(self.item_parquet), 512)
+        )
+        vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name, persistent=False)
 
         output_dir = os.path.join(self.output_path, "eval")
 

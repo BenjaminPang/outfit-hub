@@ -7,6 +7,7 @@ from .base_processor import BaseProcessor
 
 
 class PolyvoreOutfitsProcessor(BaseProcessor):
+    include_description = True
     def __init__(self, dataset_name, dataset_config, img_size=224, chunk_size=50000):
         super().__init__(dataset_name, dataset_config, img_size, chunk_size)
         self.version = dataset_config['version']
@@ -66,17 +67,19 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
                     item_set.update(item_ids)
 
         # Process item data
-        for idx, item_id in enumerate(item_set):
+        for idx, item_id in enumerate(sorted(list(item_set))):
             # process metadata
             category_id = item_metadata[item_id]['category_id']
             category = item_metadata[item_id]["semantic_category"]
             category_idx = self.category2idx[category]
+            description = item_metadata[item_id]["url_name"]
             item_entry = {
                 'item_idx': idx,
                 'item_id': item_id,
                 'category_idx': category_idx,
                 'category_id': category_id,
                 'category': category,
+                'description': description,
                 'ori_path': os.path.join(self.image_dir, f"{item_id}.jpg"),
                 'source': self.dataset_name,
             }

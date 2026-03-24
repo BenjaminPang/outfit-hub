@@ -3,18 +3,22 @@ from typing import List
 from tqdm import tqdm
 
 import chromadb
-import pandas as pd
-import numpy as np
 
 
 class VectorDB:
-    def __init__(self, item_df, embeddings_raw, dataset_name, root='.'):
+    def __init__(self, item_df, embeddings_raw, dataset_name, root='.', persistent=True):
         # 内存中维护一套 ID 和 Embedding 的映射
         self.item_df = item_df
         self.embeddings_raw = embeddings_raw
 
         # 初始化 ChromaDB (仅用于 top-k 相似度检索)
-        self.client = chromadb.PersistentClient(path=f"{root}/vector_db/{dataset_name}")
+        if persistent:
+            db_path = f"{root}/vector_db/{dataset_name}"
+            print(f"📦 Using Persistent Storage at: {db_path}")
+            self.client = chromadb.PersistentClient(path=db_path)
+        else:
+            print("🚀 Using Ephemeral Storage (In-Memory)")
+            self.client = chromadb.EphemeralClient()
         self.collection = self.client.get_or_create_collection(
             name="items_catalog",
             metadata={"hnsw:space": "cosine"}

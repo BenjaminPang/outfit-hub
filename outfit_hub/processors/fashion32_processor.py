@@ -1,8 +1,7 @@
 import json
 import os
-import pandas as pd
 from tqdm import tqdm
-import pickle
+import numpy as np
 
 from .base_processor import BaseProcessor
 from ..utils.image_utils import get_image_md5
@@ -11,6 +10,7 @@ from ..utils.vector_db_utils import VectorDB
 
 
 class Fashion32Processor(BaseProcessor):
+    include_description = False
     def process_category(self):
         category_list = ['all']
         self.category2idx = {category_str: i for i, category_str in enumerate(category_list)}
@@ -92,9 +92,13 @@ class Fashion32Processor(BaseProcessor):
         print(f"{self.dataset_name} main process finised.\nSummary: Number item: {len(self.item_parquet)}, Number outfit: {len(self.outfit_parquet)}, Number user: {len(self.user_parquet)}")
 
     def process_test(self):
-        with open(os.path.join(self.output_path, 'clip_vision_features.pkl'), 'rb') as f:
-            clip_feature = pickle.load(f)  # list type
-        vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name)
+        clip_feature = np.memmap(
+            os.path.join(self.output_path, 'clip_vision_features.npy'), 
+            dtype='float32', 
+            mode='r', 
+            shape=(len(self.item_parquet), 512)
+        )
+        vector_db = VectorDB(self.item_df, clip_feature, self.dataset_name, persistent=False)
 
         output_dir = os.path.join(self.output_path, "eval")
 

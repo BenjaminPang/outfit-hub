@@ -22,6 +22,9 @@ class BaseProcessor(ABC):
         'item_idx': 'int',
         'category_id': 'string',
         'category_idx': 'int',
+        'category': 'string',
+        'description': 'string',
+        'ori_path': 'string',
         'source': 'string',
     }
     outfit_dtype_dict = {
@@ -234,6 +237,7 @@ class BaseProcessor(ABC):
             "max_outfit_length": int(outfit_df['length'].max()) if 'length' in outfit_df.columns else 0,
             "image_size": self.img_size,
             "supported_tasks": self.supported_tasks,
+            "include_description": self.include_description,
             "chunk_size": self.chunk_size,
             "last_processed": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -255,10 +259,10 @@ class BaseProcessor(ABC):
 
         if stage == 1:
             # 阶段 1：数据清洗与特征提取
-            self.process_category()
-            self.parse_raw_data()
-            self.save_parquet()  # transform metadata and embedding into parquet and save to output_path
-            self.save_tar()  # save preprocessed image file to output_path
+            # self.process_category()
+            # self.parse_raw_data()
+            # self.save_parquet()  # transform metadata and embedding into parquet and save to output_path
+            # self.save_tar()  # save preprocessed image file to output_path
             self.process_clip()  # Extract clip feature from image file
             
         elif stage == 2:

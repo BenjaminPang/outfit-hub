@@ -7,6 +7,7 @@ from .base_processor import BaseProcessor
 
 
 class PolvyoreUProcessor(BaseProcessor):
+    include_description = False
     def __init__(self, dataset_name, dataset_config, img_size=224, chunk_size=50000):
         super().__init__(dataset_name, dataset_config, img_size, chunk_size)
         self.version = dataset_config['version']
