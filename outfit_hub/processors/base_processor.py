@@ -141,65 +141,6 @@ class BaseProcessor(ABC):
             if len(items_for_current_tar) == self.chunk_size:
                 tar_idx += 1
 
-    def process_clip(self, batch_size: int = 4096):
-        """
-        Extracts only CLIP image features from preprocessed TAR files.
-        Saves to numpy memmap format file.
-        """
-        print(f"--- Extracting Image CLIP Features: {self.dataset_name} ---")
-        
-        clip_tool = ClipEmbedding()
-        num_items = len(self.item_parquet)
-        feature_dim = 512
-        save_path = os.path.join(self.output_path, 'clip_vision_features.npy')
-        fp = np.memmap(save_path, dtype='float32', mode='w+', shape=(num_items, feature_dim))
-
-        # Iterate through each TAR chunk
-        current_tar_idx = 0
-        while True:
-            tar_name = f"{current_tar_idx:03d}.tar"
-            tar_path = os.path.join(self.output_path, tar_name)
-            
-            if not os.path.exists(tar_path):
-                break # No more chunks to process
-
-            print(f"📦 Processing: {tar_name}")
-            
-            with tarfile.open(tar_path, "r") as tar:
-                # Filter only image files (ends with .jpg)
-                members = [m for m in tar.getmembers() if m.name.endswith(".jpg")]
-                
-                # Process in batches
-                for b_idx in tqdm(range(0, len(members), batch_size), desc="CLIP Vision Encoding", leave=False):
-                    batch_members = members[b_idx : b_idx + batch_size]
-                    
-                    batch_bytes = []
-                    batch_idxs = []
-                    
-                    for member in batch_members:
-                        # Parse item_idx from filename "123.jpg"
-                        idx = int(member.name.split('.')[0])
-                        img_file = tar.extractfile(member)
-                        
-                        if img_file:
-                            batch_bytes.append(img_file.read())
-                            batch_idxs.append(idx)
-                    
-                    if not batch_bytes:
-                        continue
-                    
-                    # Inference: Image only
-                    img_embs = clip_tool.get_image_features(batch_bytes)
-                    
-                    for j, idx in enumerate(batch_idxs):
-                        if idx < num_items:
-                            fp[idx, :] = img_embs[j]
-            
-            current_tar_idx += 1
-        
-        print(f"✨ Success: Processed {num_items} items. Saved to: {save_path}")
-        del fp
-
     @abstractmethod
     def process_test(self):
         """
@@ -263,7 +204,6 @@ class BaseProcessor(ABC):
             self.parse_raw_data()
             self.save_parquet()  # transform metadata and embedding into parquet and save to output_path
             self.save_tar()  # save preprocessed image file to output_path
-            self.process_clip()  # Extract clip feature from image file
             
         elif stage == 2:
             # 阶段 2：评测任务生成

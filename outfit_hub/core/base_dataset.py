@@ -2,6 +2,7 @@
 import os
 import json
 
+from tqdm import tqdm
 import torch
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from ..utils.vector_db_utils import VectorDB
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', max_seq_length=9, transform=None, load_clip=True, load_img=False):
+    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
         with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
             self.dataset_config = json.load(f)[dataset_name]
             self.dataset_name = dataset_name
@@ -26,14 +27,15 @@ class BaseOutfitDataset(Dataset):
         self.root_dir = root_dir
         self.dataset_dir = os.path.join(root_dir, dataset_name)
         self.split = split
-        self.load_clip = load_clip
-        self.load_img = load_img
         
         # 加载标准表
         self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
         self.num_items = len(self.items_df)
         self.outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
-        self._vector_db = None
+        collection_name = f"{dataset_name}__{encode_name}"
+        self.vector_db = VectorDB(self.items_df, collection_name, self.root_dir, persistent=True)
+        self._embedding_cache = None
+        self.encode_fn = encode_fn
             
         # 筛选 Split
         if split in self.outfits_df.columns or 'split' in self.outfits_df.columns:
@@ -46,29 +48,51 @@ class BaseOutfitDataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        self.clip_feature_path = os.path.join(self.dataset_dir, 'clip_vision_features.npy')
-        if self.load_clip:
-            self._clip_features = np.memmap(
-                self.clip_feature_path, 
-                dtype='float32', 
-                mode='r', 
-                shape=(self.num_items, 512)
-            )
-
-    @property
-    def vector_db(self):
-        if self._vector_db is None:
-            print("🔍 Initializing VectorDB on demand...")
-            self._vector_db = VectorDB(self.items_df, self._clip_features, self.dataset_name, self.root_dir)
-        return self._vector_db
+        self.sync_embeddings(force_recompute)
     
-    def get_clip_feature(self, item_idx):
-        feat = self._clip_features[item_idx]
-        if isinstance(feat, np.ndarray):
-            feat_writable = feat.copy() 
-            return torch.from_numpy(feat_writable).float()
+    def get_feature(self, item_idx: int) -> np.ndarray:
+        result = self.vector_db.collection.get(str(item_idx), include=['embeddings'])
+        if result['embeddings'] is not None:
+            return np.array(result['embeddings'][0], dtype=np.float32)
         else:
-            return torch.tensor(feat).float()
+            raise KeyError(f"Item ID {item_idx} not found in VectorDB. Please run sync_embeddings first.")
+    
+    def sync_embeddings(self, force_recompute=False):
+        """
+        Core Management Method:
+            - If `force_recompute=True`, clear the current Collection and recompute.
+            - Otherwise, only fill in the missing features.
+        """
+        batch_size=5000
+        if force_recompute or self.vector_db.collection.count() < len(self.items_df):
+            if self.encode_fn is None:
+                raise ValueError("Need encode_fn to sync embeddings.")
+
+            print(f"⚠️ Warning: Recomputing ALL embeddings for {self.vector_db.collection_name}")
+            self.vector_db.clear_collection() 
+
+            all_idxs = self.items_df.index.tolist()
+            if all_idxs:
+                for i in tqdm(range(0, len(all_idxs), batch_size), desc="Syncing DB"):
+                    batch_idxs = all_idxs[i : i + batch_size]
+
+                    imgs = [self.get_image(idx, return_tensor=False) for idx in batch_idxs]
+                    txts = self.items_df.loc[batch_idxs, 'description'].fillna('').tolist()
+                    
+                    embs = self.encode_fn(imgs, txts)
+                    metadatas = self.items_df.loc[batch_idxs].to_dict(orient='records')
+                    self.vector_db.update_features(batch_idxs, embs, metadatas)
+        
+        # self._load_to_ram()
+
+    # def _load_to_ram(self):
+    #     """将 DB 数据一次性拉入内存，确保评测时的极速"""
+    #     res = self.vector_db.collection.get(include=['embeddings'])
+    #     dim = len(res['embeddings'][0])
+    #     # 创建 [num_items, dim] 的矩阵，注意 ID 映射
+    #     self._embedding_cache = np.zeros((self.items_df.index.max() + 1, dim), dtype=np.float32)
+    #     for i, idx_str in enumerate(res['ids']):
+    #         self._embedding_cache[int(idx_str)] = res['embeddings'][i]
     
     def get_image(self, item_idx, return_tensor=True):
         """
