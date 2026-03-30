@@ -1,10 +1,14 @@
 import json
 import random
+import os
+import time
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from .base_dataset import BaseOutfitDataset
+# from .datatypes import , 
+from external.outfit_transformer.src.data.datatypes import FashionCompatibilityQuery, FashionItem, FashionCompatibilityData
     
 
 class OutfitSequenceDataset(BaseOutfitDataset):
@@ -68,67 +72,55 @@ class OutfitSequenceDataset(BaseOutfitDataset):
         return res
 
 
-class OutfitValueDataset(BaseOutfitDataset):
+class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
     """
     Value Function Dataset: Used to train the Value Head (VH).
     Purpose: By constructing positive, negative, and incomplete samples, it enables the model to learn how to evaluate the state of the current combination.
     """
-    def __getitem__(self, idx):
-        row = self.outfits_df.iloc[idx]
-        item_indices = row['item_indices']
-        if isinstance(item_indices, str):
-            item_indices = json.loads(item_indices)
-
-        item_indices = item_indices[:self.max_seq_length]
-
-        full_embeds = torch.stack([self.get_clip_feature(int(i)) for i in item_indices])
-        outfit_length = full_embeds.size(0)
-
-        mode = random.random()
-        if mode < 0.5:
-            # 模式 A: 正样本-已完成 (Label: [1, 1])
-            embeddings = full_embeds
-            label = [0.9, 0.9]
-            
-        elif mode < 0.7:
-            # 模式 B: 正样本-未完成 (Label: [1, -1])
-            # 随机截断，保留至少 1 个单品
-            if outfit_length > 1:
-                cut_len = random.randint(1, outfit_length - 1)
-                embeddings = full_embeds[:cut_len]
-            else:
-                embeddings = full_embeds
-            label = [0.9, -0.9]
-            
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.split == 'train':
+            file_path = os.path.join(self.dataset_dir, 'anno', "compatibility_train.json")
         else:
-            # 模式 C: 负样本-逻辑毁坏 (Label: [-1, -1])
-            # 随机替换其中一个位置
-            embeddings = full_embeds.clone()
-            replace_pos = random.randint(0, outfit_length - 1)
-            random_idx = random.randint(0, self.num_items - 1)
-            embeddings[replace_pos] = self.get_clip_feature(random_idx)
-            label = [-0.9, -0.9] # 只要坏了，就不管完不完成，全部标负
-        
-        return {
-            "embeddings": embeddings,
-            "label": torch.tensor(label, dtype=torch.float)
-        }
+            file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
+        with open(file_path, 'r') as f:
+            self.data = json.load(f)
+
+        self._categories = self.items_df['category'].tolist()
+        self._descriptions = self.items_df['description'].tolist()
+        self._embedding_cache = self._load_vector_db_to_numpy()
+
+    def __getitem__(self, i: int) -> FashionCompatibilityData:
+        sample = self.data[i]
+        outfit = FashionCompatibilityQuery(
+            outfit=[self.construct_item(iidx) for iidx in sample['items']]
+        )
+        output = FashionCompatibilityData(
+            label=sample['label'],
+            query=outfit
+        )
+        return output
+    
+    def __len__(self):
+        return len(self.data)
+
+    def construct_item(self, iidx: int) -> FashionItem:
+        try:
+            return FashionItem(
+                category= self._categories[iidx],
+                image=None,
+                description= self._descriptions[iidx],
+                embedding=self.get_feature(iidx)
+            )
+        except IndexError:
+            return None
 
     @staticmethod
     def collate_fn(batch):
-        embs = [item["embeddings"] for item in batch]
-        labels = [item["label"] for item in batch]
-        padded_embs = pad_sequence(embs, batch_first=True, padding_value=0.0)
+        label = [item['label'] for item in batch]
+        query = [item['query'] for item in batch]
         
-        # 生成 mask
-        batch_size = padded_embs.size(0)
-        max_len = padded_embs.size(1)
-        mask = torch.ones(batch_size, max_len, dtype=torch.bool)
-        for i, outfit_embs in enumerate(embs):
-            mask[i, :len(outfit_embs)] = False
-            
-        return {
-            "item_embeddings": padded_embs,
-            "mask": mask,
-            "labels": torch.stack(labels) # [B, 2]
-        }
+        return FashionCompatibilityData(
+            label=label,
+            query=query
+        )

@@ -142,6 +142,12 @@ class BaseProcessor(ABC):
                 tar_idx += 1
 
     @abstractmethod
+    def process_train(self):
+        """
+        Every children class should implement this method to generate corresponding train file
+        """
+
+    @abstractmethod
     def process_test(self):
         """
         Every children class should implement this method to generate corresponding test file from raw test data.
@@ -209,7 +215,7 @@ class BaseProcessor(ABC):
             # 阶段 2：评测任务生成
             if not self.item_parquet or not self.outfit_parquet:
                 self.load_processed_data()
-                
+            self.process_train()
             self.process_test()  # output json to output_path
             self.save_metadata()  # save summarized dataset info into data/metadata.json
         else:

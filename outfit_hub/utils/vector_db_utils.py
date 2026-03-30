@@ -57,6 +57,24 @@ class VectorDB:
         except Exception as e:
             print(f"❌ Error during VectorDB upsert: {e}")
             raise e
+        
+    def get_embedding_by_idx(self, item_idx: int) -> np.ndarray:
+        """根据原始整数索引获取对应的向量"""
+        # 1. 将整数索引转为字符串 ID
+        id_str = str(item_idx)
+        
+        # 2. 调用 get 方法，并明确指定需要获取 embeddings
+        res = self.collection.get(
+            ids=[id_str], 
+            include=["embeddings"]
+        )
+        
+        # 3. 检查结果并返回
+        if res['embeddings'] is not None:
+            # 返回的是一个 list，我们取第一个元素并转回 numpy 数组
+            return res['embeddings'][0]
+        else:
+            return None
     
     def __len__(self):
         return self.collection.count()

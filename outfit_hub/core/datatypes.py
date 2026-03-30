@@ -57,8 +57,8 @@ class FashionComplementaryQuery(BaseModel):
     
 
 class FashionCompatibilityData(TypedDict):
-    label: int
-    query: FashionOutfit
+    label: Union[int, list[int]]
+    query: Union[FashionOutfit, list[FashionOutfit]]
     
     
 class FashionFillInTheBlankData(TypedDict):

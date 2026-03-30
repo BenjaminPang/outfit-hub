@@ -110,6 +110,11 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
 
         print(f"{self.dataset_name} main process finised.\nSummary: Number item: {len(self.item_parquet)}, Number outfit: {len(self.outfit_parquet)}, Number user: {len(self.user_parquet)}")
 
+    def process_train(self):
+        output_dir = os.path.join(self.output_path, "anno")
+        os.makedirs(output_dir, exist_ok=True)
+        self._transform_compatibility_task(output_dir, splits=['train'])
+
     def _transform_fitb_task(self, output_dir):
         count_dict = {}
         for split in ['valid', 'test']:
@@ -180,9 +185,9 @@ class PolyvoreOutfitsProcessor(BaseProcessor):
             count_dict[split] = len(tasks)
         self.supported_tasks['fitb'] = count_dict
 
-    def _transform_compatibility_task(self, output_dir):
+    def _transform_compatibility_task(self, output_dir, splits=['valid', 'test']):
         count_dict = {}
-        for split in ['valid', 'test']:
+        for split in splits:
             with open(os.path.join(self.root_path, self.version, f'{split}.json'), 'r') as f:
                 raw_outfits_data = json.load(f)
             outfitrawid2outfit = {outfit['set_id']: outfit for outfit in raw_outfits_data}

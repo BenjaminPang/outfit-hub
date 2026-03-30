@@ -49,13 +49,28 @@ class BaseOutfitDataset(Dataset):
         ])
 
         self.sync_embeddings(force_recompute)
+
+    def _load_vector_db_to_numpy(self):
+        res = self.vector_db.collection.get(include=['embeddings'])
+        
+        dim = len(res['embeddings'][0])
+        all_embs = np.zeros((self.num_items, dim), dtype=np.float32)
+        
+        ids = np.array(res['ids'], dtype=int)
+        embs = np.array(res['embeddings'], dtype=np.float32)
+        
+        all_embs[ids] = embs 
+        return all_embs
     
     def get_feature(self, item_idx: int) -> np.ndarray:
-        result = self.vector_db.collection.get(str(item_idx), include=['embeddings'])
-        if result['embeddings'] is not None:
-            return np.array(result['embeddings'][0], dtype=np.float32)
+        if self._embedding_cache is not None:
+            return self._embedding_cache[item_idx]
         else:
-            raise KeyError(f"Item ID {item_idx} not found in VectorDB. Please run sync_embeddings first.")
+            result = self.vector_db.collection.get(str(item_idx), include=['embeddings'])
+            if result['embeddings'] is not None:
+                return np.array(result['embeddings'][0], dtype=np.float32)
+            else:
+                raise KeyError(f"Item ID {item_idx} not found in VectorDB. Please run sync_embeddings first.")
     
     def sync_embeddings(self, force_recompute=False):
         """
