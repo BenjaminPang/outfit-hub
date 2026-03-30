@@ -1,14 +1,12 @@
 import json
 import random
 import os
-import time
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from .base_dataset import BaseOutfitDataset
-# from .datatypes import , 
-from external.outfit_transformer.src.data.datatypes import FashionCompatibilityQuery, FashionItem, FashionCompatibilityData
+from .datatypes import FashionItem, FashionOutfit, FashionCompatibilityData
     
 
 class OutfitSequenceDataset(BaseOutfitDataset):
@@ -92,7 +90,7 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
 
     def __getitem__(self, i: int) -> FashionCompatibilityData:
         sample = self.data[i]
-        outfit = FashionCompatibilityQuery(
+        outfit = FashionOutfit(
             outfit=[self.construct_item(iidx) for iidx in sample['items']]
         )
         output = FashionCompatibilityData(

@@ -20,9 +20,11 @@ Currently, all datasets listed in the Supported Datasets section have been stand
 Modify the download section in ./outfit_hub/run/sync_hf.sh to ensure the path points to your local data directory, then run:
 
 ```Bash
-# Grant execution permissions and run
-chmod +x ./outfit_hub/run/sync_hf.sh
-./outfit_hub/run/sync_hf.sh
+python3 outfit_hub/run/sync_hf.py download \
+    --repo pangkaicheng/outfit-hub-datasets \
+    --path ./data \
+    --type dataset \
+    --no-symlinks
 ```
 
 This command will automatically download all .parquet metadata, .npy vision features, and sharded image .tar archives from Hugging Face.
