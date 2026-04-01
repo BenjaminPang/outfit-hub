@@ -1,7 +1,7 @@
 from torch.utils.data import ConcatDataset, DataLoader
 
 
-def get_combined_loader(dataset_names, dataset_class, root_dir="./data", split='train', batch_size=32, num_workers=4, max_seq_length=9, pin_memory=True, transform=None, encode_fn=True, encode_name=False):
+def get_combined_loader(dataset_names, dataset_class, root_dir="./data", split='train', batch_size=32, num_workers=4, max_seq_length=9, pin_memory=True, transform=None, encode_fn=True, encode_name=False, task_name=""):
     """
     dataset_configs: List[str], such as:
     ["polyvoreu519", "ifashion"]
@@ -13,6 +13,7 @@ def get_combined_loader(dataset_names, dataset_class, root_dir="./data", split='
             dataset_name=name, 
             dataset_idx=ds_idx,
             split=split,
+            task_name=task_name,
             encode_fn=encode_fn,
             encode_name=encode_name,
             max_seq_length=max_seq_length,

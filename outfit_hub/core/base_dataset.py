@@ -3,7 +3,6 @@ import os
 import json
 
 from tqdm import tqdm
-import torch
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -11,10 +10,11 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from ..utils.vector_db_utils import VectorDB
+from .datatypes import FashionItem
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
+    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', task_name="", encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
         with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
             self.dataset_config = json.load(f)[dataset_name]
             self.dataset_name = dataset_name
@@ -98,16 +98,16 @@ class BaseOutfitDataset(Dataset):
                     metadatas = self.items_df.loc[batch_idxs].to_dict(orient='records')
                     self.vector_db.update_features(batch_idxs, embs, metadatas)
         
-        # self._load_to_ram()
-
-    # def _load_to_ram(self):
-    #     """将 DB 数据一次性拉入内存，确保评测时的极速"""
-    #     res = self.vector_db.collection.get(include=['embeddings'])
-    #     dim = len(res['embeddings'][0])
-    #     # 创建 [num_items, dim] 的矩阵，注意 ID 映射
-    #     self._embedding_cache = np.zeros((self.items_df.index.max() + 1, dim), dtype=np.float32)
-    #     for i, idx_str in enumerate(res['ids']):
-    #         self._embedding_cache[int(idx_str)] = res['embeddings'][i]
+    def construct_item(self, iidx: int) -> FashionItem:
+        try:
+            return FashionItem(
+                category= self._categories[iidx],
+                image=None,
+                description= self._descriptions[iidx],
+                embedding=self.get_feature(iidx)
+            )
+        except IndexError:
+            return None
     
     def get_image(self, item_idx, return_tensor=True):
         """

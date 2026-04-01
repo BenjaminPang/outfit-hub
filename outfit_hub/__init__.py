@@ -1,5 +1,5 @@
 from .core.loader import get_combined_loader
-from .core.train_dataset import OutfitSequenceDataset, FashionCompatibilityPredictioneDataset
+from .core.train_dataset import NextItemPredictionDataset, FashionCompatibilityPredictioneDataset
 from .core.eval_dataset import FITBEvalDataset, CompEvalDataset
 from .utils.sync_hf_utils import download_repo, upload_repo
 from .core.datatypes import FashionItem, FashionOutfit, FashionComplementaryQuery, FashionCompatibilityData, FashionFillInTheBlankData, FashionTripletData
@@ -8,7 +8,7 @@ from .core.datatypes import FashionItem, FashionOutfit, FashionComplementaryQuer
 __version__ = "0.0.1"
 __all__ = [
     "get_combined_loader",
-    "OutfitSequenceDataset",
+    "NextItemPredictionDataset",
     "FashionCompatibilityPredictioneDataset",
     "FITBEvalDataset",
     "CompEvalDataset",

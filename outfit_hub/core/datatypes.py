@@ -62,9 +62,9 @@ class FashionCompatibilityData(TypedDict):
     
     
 class FashionFillInTheBlankData(TypedDict):
-    query: FashionComplementaryQuery
-    label: int
-    candidates: list[FashionItem]
+    query: Union[FashionComplementaryQuery, list[FashionComplementaryQuery]]
+    label: Union[int, list[int]]
+    candidates: Union[list[FashionItem], list[list[FashionItem]]]
     
     
 class FashionTripletData(TypedDict):
