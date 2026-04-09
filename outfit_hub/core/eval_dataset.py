@@ -2,6 +2,10 @@
 import os
 import json
 
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+
 from .base_dataset import BaseOutfitDataset
 from .datatypes import FashionItem, FashionOutfit, FashionComplementaryQuery, FashionCompatibilityData, FashionFillInTheBlankData
 
@@ -92,3 +96,66 @@ class CompEvalDataset(BaseOutfitDataset):
             label=label
         )
         return compatibility_data
+
+
+class AvailabilityMaskDataset(BaseOutfitDataset):
+    def __init__(self, root_dir, dataset_name, seed=42, **kwargs):
+        # 显式设置 split 为 'test'
+        super().__init__(root_dir, dataset_name, split='test', **kwargs)
+        self.missing_ratio = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
+        self.seed = seed
+        
+        self.item_pool = set()
+        self._categories = self.items_df['category'].fillna('unknown').tolist()
+        self._descriptions = self.items_df['description'].fillna('').tolist()
+        self._embedding_cache = self._load_vector_db_to_numpy()
+
+        self.samples = []
+        for row in self.outfits_df.itertuples():
+            item_idxs = row.item_indices
+            if isinstance(item_idxs, str):
+                item_idxs = json.loads(item_idxs)
+            self.item_pool.update(item_idxs)
+            self.samples.append(item_idxs)
+
+        self.item_pool = sorted(list(self.item_pool))
+        self.num_items = len(self.item_pool)
+            
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, i: int):
+        # 使用样本索引 i 结合全局 seed，确保每个 sample 的随机性是固定且可复现的
+        sample_seed = self.seed + i
+        rng = np.random.default_rng(sample_seed)
+        
+        full_outfit = self.samples[i]
+        
+        # 1. 随机挖掉一个作为 GT
+        gt_idx_in_list = rng.integers(0, len(full_outfit))
+        # gt_item_idx = full_outfit[gt_idx_in_list]
+        # gt_item = self.construct_item(gt_item_idx)
+        incomplete_idxs = [idx for j, idx in enumerate(full_outfit) if j != gt_idx_in_list]
+
+        # 2. 构造模型输入
+        item_list = [self.construct_item(idx) for idx in incomplete_idxs]
+        
+        # 生成所有 item 的随机置换
+        shuffled_indices = rng.permutation(self.item_pool)
+
+        output = {
+            "query": FashionOutfit(
+                outfit=item_list
+            ),
+            # "gt_item": gt_item,
+            "candidate_indices": torch.from_numpy(shuffled_indices),
+        }
+        return output
+    
+    @staticmethod
+    def collate_fn(batch):
+        return {
+            "query": [x['query'] for x in batch],
+            # "gt_item": [x['gt_item'] for x in batch],
+            "candidate_indices": torch.stack([x['candidate_indices'] for x in batch], dim=0)
+        }

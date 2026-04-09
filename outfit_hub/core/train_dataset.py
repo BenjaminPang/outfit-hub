@@ -19,10 +19,13 @@ class NextItemPredictionDataset(BaseOutfitDataset):
         self._embedding_cache = self._load_vector_db_to_numpy()
 
     def __len__(self):
+        if self.split == 'train':
+            return len(self.data) * 2
         return len(self.data)
 
     def __getitem__(self, i: int) -> FashionTripletData:
-        item_idxs = self.data[i]
+        idx = i % len(self.data)
+        item_idxs = self.data[idx]
         answer_index = random.randint(0, len(item_idxs) - 1)
         item_list = [self.construct_item(iidx) for iidx in item_idxs if iidx != answer_index]
         answer = self.construct_item(item_idxs[answer_index])
@@ -64,6 +67,37 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
         self._categories = self.items_df['category'].tolist()
         self._descriptions = self.items_df['description'].tolist()
         self._embedding_cache = self._load_vector_db_to_numpy()
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+        
+    #     self._categories = self.items_df['category'].tolist()
+    #     self._descriptions = self.items_df['description'].tolist()
+    #     self._embedding_cache = self._load_vector_db_to_numpy()
+    #     self.cat_to_indices = self.items_df.groupby('category').groups
+
+    #     self.pos_data = [{"items": json.loads(x), "label": 1} for x in self.outfits_df['item_indices'].tolist()]
+    #     self.neg_data = []
+    #     for sample in self.pos_data:
+    #         neg_outfit = self._generate_neg_outfit(sample['items'])
+    #         self.neg_data.append({"items": neg_outfit, "label": 0})
+    #     self.data = self.pos_data + self.neg_data
+
+    # def _generate_neg_outfit(self, item_idxs: list[int]) -> list[int]:
+    #     neg_outfit = []
+    #     for item_idx in item_idxs:
+    #         target_cat = self._categories[item_idx]
+    #         pool = self.cat_to_indices[target_cat]
+            
+    #         if len(pool) > 1:
+    #             # 排除掉当前那件，选个不一样的
+    #             choices = [i for i in pool if i != item_idx]
+    #             neg_outfit.append(random.choice(choices))
+    #         else:
+    #             # 如果该类实在没别的了，全库随机抽一件
+    #             neg_outfit.append(random.randint(0, len(self.items_df) - 1))
+            
+    #     return neg_outfit
 
     def __getitem__(self, i: int) -> FashionCompatibilityData:
         sample = self.data[i]

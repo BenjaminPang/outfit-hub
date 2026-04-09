@@ -11,10 +11,10 @@ class FashionItem(BaseModel):
     #     default=None,
     #     description="Unique ID of the item, mapped to `id` in the ItemLoader"
     # )
-    # item_idx: Optional[int] = Field(
-    #     default=None,
-    #     description="Unique sequential index used for image retrieval and parquet data mapping."
-    # )
+    item_idx: Optional[int] = Field(
+        default=None,
+        description="Unique sequential index used for image retrieval and parquet data mapping."
+    )
     category: Optional[str] = Field(
         default="",
         description="Category of the item"

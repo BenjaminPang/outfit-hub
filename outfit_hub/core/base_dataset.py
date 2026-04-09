@@ -14,7 +14,7 @@ from .datatypes import FashionItem
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', task_name="", encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
+    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
         with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
             self.dataset_config = json.load(f)[dataset_name]
             self.dataset_name = dataset_name
@@ -63,15 +63,15 @@ class BaseOutfitDataset(Dataset):
         return all_embs
     
     def get_feature(self, item_idx: int) -> np.ndarray:
-        if self._embedding_cache is not None:
-            return self._embedding_cache[item_idx]
-        else:
-            result = self.vector_db.collection.get(str(item_idx), include=['embeddings'])
-            if result['embeddings'] is not None:
-                return np.array(result['embeddings'][0], dtype=np.float32)
-            else:
-                raise KeyError(f"Item ID {item_idx} not found in VectorDB. Please run sync_embeddings first.")
+        if self._embedding_cache is None:
+            self._embedding_cache = self._load_vector_db_to_numpy()
+        return self._embedding_cache[item_idx]
     
+    def get_features(self, item_idxs: list[int]) -> np.ndarray:
+        if self._embedding_cache is None:
+            self._embedding_cache = self._load_vector_db_to_numpy()
+        return self._embedding_cache[item_idxs]
+
     def sync_embeddings(self, force_recompute=False):
         """
         Core Management Method:
@@ -101,7 +101,8 @@ class BaseOutfitDataset(Dataset):
     def construct_item(self, iidx: int) -> FashionItem:
         try:
             return FashionItem(
-                category= self._categories[iidx],
+                item_idx=iidx,
+                category=self._categories[iidx],
                 image=None,
                 description= self._descriptions[iidx],
                 embedding=self.get_feature(iidx)
