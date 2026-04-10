@@ -1,6 +1,7 @@
 #outfit_hub/core/base_dataset.py
 import os
 import json
+from typing import Union
 
 from tqdm import tqdm
 import numpy as np
@@ -34,7 +35,9 @@ class BaseOutfitDataset(Dataset):
         self.outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
         collection_name = f"{dataset_name}__{encode_name}"
         self.vector_db = VectorDB(self.items_df, collection_name, self.root_dir, persistent=True)
-        self._embedding_cache = None
+        self._categories = self.items_df['category'].tolist()
+        self._descriptions = self.items_df['description'].tolist()
+        self._embedding_cache = self._load_vector_db_to_numpy()
         self.encode_fn = encode_fn
             
         # 筛选 Split
@@ -62,15 +65,8 @@ class BaseOutfitDataset(Dataset):
         all_embs[ids] = embs 
         return all_embs
     
-    def get_feature(self, item_idx: int) -> np.ndarray:
-        if self._embedding_cache is None:
-            self._embedding_cache = self._load_vector_db_to_numpy()
+    def get_feature(self, item_idx: Union[int, list[int]]) -> np.ndarray:
         return self._embedding_cache[item_idx]
-    
-    def get_features(self, item_idxs: list[int]) -> np.ndarray:
-        if self._embedding_cache is None:
-            self._embedding_cache = self._load_vector_db_to_numpy()
-        return self._embedding_cache[item_idxs]
 
     def sync_embeddings(self, force_recompute=False):
         """
