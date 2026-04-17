@@ -1,6 +1,5 @@
 from typing import Optional, TypedDict, Union
 from PIL import Image
-import copy
 from pydantic import BaseModel, Field, ConfigDict
 import numpy as np
 
@@ -37,6 +36,11 @@ class FashionItem(BaseModel):
     )
 
 
+class FashionWeightedItem(BaseModel):
+    item: list[FashionItem]
+    weight: list[float]
+
+
 class FashionOutfit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     outfit: list[FashionItem] = Field(
@@ -50,10 +54,10 @@ class FashionComplementaryQuery(BaseModel):
         default_factory=list,
         description="List of fashion items"
     )
-    category: str = Field(
-        default="",
-        description="Category of the target outfit"
-    )
+    # category: str = Field(
+    #     default="",
+    #     description="Category of the target outfit"
+    # )
     
 
 class FashionCompatibilityData(TypedDict):
@@ -65,14 +69,16 @@ class FashionFillInTheBlankData(TypedDict):
     query: Union[FashionComplementaryQuery, list[FashionComplementaryQuery]]
     label: Union[int, list[int]]
     candidates: Union[list[FashionItem], list[list[FashionItem]]]
-    
-    
-class FashionTripletData(TypedDict):
+
+
+class FashionContrastivetData(TypedDict):
     query: Union[
         FashionComplementaryQuery,
         list[FashionComplementaryQuery]
     ]
     answer: Union[
         FashionItem,
-        list[FashionItem]
+        list[FashionItem],
+        FashionWeightedItem,
+        list[FashionWeightedItem]
     ]

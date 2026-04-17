@@ -15,12 +15,11 @@ from .datatypes import FashionItem
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', encode_fn=None, encode_name="", max_seq_length=9, transform=None, force_recompute=False):
+    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', task_name="", encode_fn=None, encode_name="", transform=None, force_recompute=False):
         with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
             self.dataset_config = json.load(f)[dataset_name]
             self.dataset_name = dataset_name
             self.dataset_idx = dataset_idx
-            self.max_seq_length = max_seq_length
             self.supported_tasks = []
             for k, v in self.dataset_config['supported_tasks'].items():
                 self.supported_tasks.extend([k + "_" + task for task in v.keys()])
@@ -31,15 +30,21 @@ class BaseOutfitDataset(Dataset):
         
         # 加载标准表
         self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
-        self.num_items = len(self.items_df)
         self.outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
-        collection_name = f"{dataset_name}__{encode_name}"
-        self.vector_db = VectorDB(self.items_df, collection_name, self.root_dir, persistent=True)
         self._categories = self.items_df['category'].tolist()
+        self.active_categories = list(set(self._categories))
         self._descriptions = self.items_df['description'].tolist()
-        self._embedding_cache = self._load_vector_db_to_numpy()
-        self.encode_fn = encode_fn
-            
+
+        collection_name = f"{dataset_name}__{encode_name}"
+        self.vector_db = VectorDB(
+            self.items_df,
+            collection_name,
+            encode_fn,
+            self.root_dir,
+            persistent=True,
+            force_recompute=force_recompute
+        )
+        
         # 筛选 Split
         if split in self.outfits_df.columns or 'split' in self.outfits_df.columns:
             self.outfits_df = self.outfits_df[self.outfits_df['split'] == split].reset_index(drop=True)
@@ -49,50 +54,10 @@ class BaseOutfitDataset(Dataset):
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        ])        
 
-        self.sync_embeddings(force_recompute)
-
-    def _load_vector_db_to_numpy(self):
-        res = self.vector_db.collection.get(include=['embeddings'])
-        
-        dim = len(res['embeddings'][0])
-        all_embs = np.zeros((self.num_items, dim), dtype=np.float32)
-        
-        ids = np.array(res['ids'], dtype=int)
-        embs = np.array(res['embeddings'], dtype=np.float32)
-        
-        all_embs[ids] = embs 
-        return all_embs
-    
     def get_feature(self, item_idx: Union[int, list[int]]) -> np.ndarray:
-        return self._embedding_cache[item_idx]
-
-    def sync_embeddings(self, force_recompute=False):
-        """
-        Core Management Method:
-            - If `force_recompute=True`, clear the current Collection and recompute.
-            - Otherwise, only fill in the missing features.
-        """
-        batch_size=5000
-        if force_recompute or self.vector_db.collection.count() < len(self.items_df):
-            if self.encode_fn is None:
-                raise ValueError("Need encode_fn to sync embeddings.")
-
-            print(f"⚠️ Warning: Recomputing ALL embeddings for {self.vector_db.collection_name}")
-            self.vector_db.clear_collection() 
-
-            all_idxs = self.items_df.index.tolist()
-            if all_idxs:
-                for i in tqdm(range(0, len(all_idxs), batch_size), desc="Syncing DB"):
-                    batch_idxs = all_idxs[i : i + batch_size]
-
-                    imgs = [self.get_image(idx, return_tensor=False) for idx in batch_idxs]
-                    txts = self.items_df.loc[batch_idxs, 'description'].fillna('').tolist()
-                    
-                    embs = self.encode_fn(imgs, txts)
-                    metadatas = self.items_df.loc[batch_idxs].to_dict(orient='records')
-                    self.vector_db.update_features(batch_idxs, embs, metadatas)
+        return self.vector_db._embedding_cache[item_idx]
         
     def construct_item(self, iidx: int) -> FashionItem:
         try:
@@ -123,5 +88,3 @@ class BaseOutfitDataset(Dataset):
 
     def __len__(self):
         return len(self.outfits_df)
-
-
