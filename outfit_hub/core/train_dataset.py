@@ -1,5 +1,6 @@
 import json
 import random
+import os
 
 from tqdm import tqdm
 
@@ -16,14 +17,10 @@ class FashionItemPoolDataset(BaseOutfitDataset):
         
         # 1. 提取所有 items
         all_item_ids = []
-        for x in self.outfits_df['item_indices'].tolist():
-            if isinstance(x, str):
-                items = json.loads(x)
-            else:
-                items = x
+        for items in self.outfits:
             all_item_ids.extend(items) # 将套装中的单品铺开
             
-        # 2. 去重（如果你需要的是唯一的单品池）
+        # 2. 去重
         self.data = sorted(list(set(all_item_ids)))
 
     def __len__(self):
@@ -35,59 +32,18 @@ class FashionItemPoolDataset(BaseOutfitDataset):
         return self.construct_item(item_id)
 
 
-class FashionOutfitDataset(BaseOutfitDataset):
-    """
-    Standard Outfit Dataset: Returns a complete outfit as recorded in the outfits_df.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data = []
-        for x in self.outfits_df['item_indices'].tolist():
-            if isinstance(x, str):
-                self.data.append(json.loads(x))
-            else:
-                self.data.append(x)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, i: int) -> FashionOutfit:
-        """
-        直接返回一个完整的 FashionOutfit 对象
-        """
-        item_idxs = self.data[i]
-        
-        # 使用你基类中的 construct_item 构建物品列表
-        items = [self.construct_item(iidx) for iidx in item_idxs]
-        
-        # 封装进 FashionOutfit
-        output = FashionOutfit(
-            outfit=items
-        )
-        
-        return output
-
-    @staticmethod
-    def collate_fn(batch):
-        """
-        处理成 List[FashionOutfit] 即可，后续由 Model 处理 padding 等逻辑
-        """
-        return batch
-
-
 class NextItemPredictionDataset(BaseOutfitDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data = [json.loads(x) for x in self.outfits_df['item_indices'].tolist()]
 
     def __len__(self):
         if self.split == 'train':
-            return len(self.data) * 5
-        return len(self.data)
+            return len(self.outfits) * 5
+        return len(self.outfits)
 
     def __getitem__(self, i: int) -> FashionContrastivetData:
-        idx = i % len(self.data)
-        item_idxs = self.data[idx]
+        idx = i % len(self.outfits)
+        item_idxs = self.outfits[idx]
 
         answer_idx_in_list = random.randint(0, len(item_idxs) - 1)
         answer_val = item_idxs[answer_idx_in_list]
@@ -139,7 +95,7 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
         if self.split == 'train':
             self.cat_to_indices = self.items_df.groupby('category').groups
 
-            self.pos_data = [{"items": json.loads(x), "label": 1} for x in self.outfits_df['item_indices'].tolist()]
+            self.pos_data = [{"items": x, "label": 1} for x in self.outfits]
             self.neg_data = []
             for sample in tqdm(self.pos_data, desc="Generating mixed neg outfits"):
                 items = sample['items']

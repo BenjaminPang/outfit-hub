@@ -10,54 +10,79 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from ..utils.vector_db_utils import VectorDB
-from .datatypes import FashionItem
+from .datatypes import FashionItem, FashionOutfit
 
 
 class BaseOutfitDataset(Dataset):
-    def __init__(self, root_dir, dataset_name, dataset_idx=0, split='train', task_name="", encode_fn=None, encode_name="", transform=None, force_recompute=False):
-        with open(os.path.join(root_dir, 'metadata.json'), 'r') as f:
-            self.dataset_config = json.load(f)[dataset_name]
-            self.dataset_name = dataset_name
-            self.dataset_idx = dataset_idx
-            self.supported_tasks = []
-            for k, v in self.dataset_config['supported_tasks'].items():
-                self.supported_tasks.extend([k + "_" + task for task in v.keys()])
-    
+    def __init__(
+        self, 
+        root_dir: str, 
+        dataset_name: str,
+        feature_path: str, # 只需要传入 npy 文件的绝对路径
+        split: str = 'train',
+        transform: str = None,
+        **kwargs
+    ):
         self.root_dir = root_dir
+        self.dataset_name = dataset_name
         self.dataset_dir = os.path.join(root_dir, dataset_name)
         self.split = split
+        self.feature_path = feature_path
+        self.dataset_idx = kwargs.get("dataset_idx", 0)
         
         # 加载标准表
-        self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
-        self.outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
-        self._categories = self.items_df['category'].tolist()
+        items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
+        self._categories = items_df['category'].tolist()
         self.active_categories = list(set(self._categories))
-        self._descriptions = self.items_df['description'].tolist()
+        self._descriptions = items_df['description'].fillna('').tolist()
 
-        collection_name = f"{dataset_name}__{encode_name}"
-        self.vector_db = VectorDB(
-            self.items_df,
-            collection_name,
-            encode_fn,
-            self.root_dir,
-            persistent=True,
-            force_recompute=force_recompute
-        )
+        outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
+        if split == "all":
+            self.outfits_df = outfits_df
+        else:
+            self.outfits_df = outfits_df[outfits_df['split'] == split].reset_index(drop=True)
         
-        # 筛选 Split
-        if split in self.outfits_df.columns or 'split' in self.outfits_df.columns:
-            self.outfits_df = self.outfits_df[self.outfits_df['split'] == split].reset_index(drop=True)
+        self._outfits = None
+        self._features = None
 
         # 图片处理
         self.transform = transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])        
+        ])
 
+    @property
+    def outfits(self):
+        if self._outfits is None:
+            self._outfits = [
+                json.loads(x) if isinstance(x, str) else x 
+                for x in self.outfits_df['item_indices'].tolist() 
+            ]
+            self.outfits_df = None
+        return self._outfits
+
+    @property
+    def features(self):
+        """
+        延迟加载 mmap。
+        """
+        if self._features is None and self.feature_path:
+            if os.path.exists(self.feature_path):
+                # 'r' 模式非常关键：它保证了多进程共享物理内存，且是只读的
+                self._features = np.load(self.feature_path, mmap_mode='r')
+            else:
+                print(f"⚠️ Warning: feature_path {self.feature_path} not found.")
+        return self._features
+    
     def get_feature(self, item_idx: Union[int, list[int]]) -> np.ndarray:
-        return self.vector_db._embedding_cache[item_idx]
+        """
+        直接通过 numpy 索引获取特征
+        """
+        if self.features is not None:
+            # numpy mmap 对象支持标准切片和索引
+            return self.features[item_idx]
+        return None
         
     def construct_item(self, iidx: int) -> FashionItem:
         try:
@@ -87,4 +112,15 @@ class BaseOutfitDataset(Dataset):
                 return None
 
     def __len__(self):
-        return len(self.outfits_df)
+        return len(self.outfits)
+    
+    def __getitem__(self, idx):
+        """返回一条完整的 Outfit 数据"""
+        item_ids = self.outfits[idx]
+        
+        # 构造这一组搭配的所有 FashionItem
+        items = [self.construct_item(iid) for iid in item_ids]
+        
+        return FashionOutfit(
+            outfit=items
+        )

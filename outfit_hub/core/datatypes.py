@@ -26,6 +26,10 @@ class FashionItem(BaseModel):
         default="",
         description="Description of the item"
     )
+    gen_description: Optional[str] = Field(
+        default="",
+        description="Generated description of the item by LLM"
+    )
     metadata: Optional[dict] = Field(
         default_factory=dict,
         description="Additional metadata for the item"
