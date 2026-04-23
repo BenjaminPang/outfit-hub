@@ -23,16 +23,16 @@ class VectorDB:
         self._embedding_memmap = None
 
     @classmethod
-    def setup_and_sync(cls, cfg, dataset_name, collection_name, encode_fn):
+    def setup_and_sync(cls, data_root_dir, dataset_name, collection_name, encode_fn):
         """
         Args:
-            cfg (dict): config dict.
+            data_root_dir (str): data root dir
             dataset_name (str): Name of desired dataset.
             collection_name (str): Unique identifier for the specific encoder/version. {dataset_name}__{encode_name}__{model_name}__{version}
             encode_fn (callable, optional): Model inference function. Only required in this function.
         """
-        root = cfg.train.get("data_root_dir", './data')
-        db_path = os.path.join(root, "vector_db")
+        batch_size = 5000
+        db_path = os.path.join(data_root_dir, "vector_db")
         client = chromadb.PersistentClient(path=db_path)
         dist_mode = "cosine" if "clip" in collection_name.lower() else "l2"
         collection = client.get_or_create_collection(
@@ -44,15 +44,14 @@ class VectorDB:
         os.makedirs(feature_dir, exist_ok=True)
         feature_path = os.path.join(feature_dir, f"feat_{collection_name}.npy")
 
-        items_df = pd.read_parquet(os.path.join(root, dataset_name, "items.parquet"))
+        items_df = pd.read_parquet(os.path.join(data_root_dir, dataset_name, "items.parquet"))
         if not os.path.exists(feature_path):
-            batch_size = 5000
             all_idxs = items_df.index.tolist()
             all_embs_list = []
             
             for i in tqdm(range(0, len(all_idxs), batch_size), desc="Encoding"):
                 batch_idxs = all_idxs[i : i + batch_size]
-                imgs = cls.get_image_by_idx(os.path.join(root, dataset_name), batch_idxs)
+                imgs = cls.get_image_by_idx(os.path.join(data_root_dir, dataset_name), batch_idxs)
                 txts = items_df.loc[batch_idxs, 'description'].fillna('').tolist()
                 
                 embs = encode_fn(imgs, txts)
@@ -75,8 +74,6 @@ class VectorDB:
         expected_count = len(items_df)
         if collection.count() < expected_count:
             print(f"⚠️ ChromaDB sync issue: Found {collection.count()}/{expected_count} items. Re-syncing from .npy...")
-            
-            batch_size = 5000
             for i in tqdm(range(0, expected_count, batch_size), desc="Restoring ChromaDB"):
                 end_idx = min(i + batch_size, expected_count)
                 batch_idxs = list(range(i, end_idx))
@@ -101,9 +98,8 @@ class VectorDB:
         return cls(collection, feature_path)
 
     @classmethod
-    def create_lazy_reader(cls, cfg, collection_name):
-        root = cfg.train.data_root_dir
-        db_path = os.path.join(root, "vector_db")
+    def create_lazy_reader(cls, data_root_dir, collection_name):
+        db_path = os.path.join(data_root_dir, "vector_db")
         client = chromadb.PersistentClient(path=db_path)
         dist_mode = "cosine" if "clip" in collection_name.lower() else "l2"
         collection = client.get_or_create_collection(

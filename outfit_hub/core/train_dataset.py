@@ -52,13 +52,14 @@ class NextItemPredictionDataset(BaseOutfitDataset):
         remaining_idxs = [iidx for iidx in item_idxs if iidx != answer_val]
         # k means how many remaining items serve as outfit query
         k = random.randint(1, len(remaining_idxs))
-        chosen_context_idxs = random.sample(remaining_idxs, k)
+        # chosen_context_idxs = random.sample(remaining_idxs, k)
+        chosen_context_idxs = remaining_idxs
         item_list = [self.construct_item(iidx) for iidx in chosen_context_idxs]
 
         output = FashionContrastivetData(
             query=FashionComplementaryQuery(
                 outfit=item_list,
-                # category=answer.category
+                category=answer.category
             ),
             answer=answer
         )
@@ -81,33 +82,33 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
     Value Function Dataset: Used to train the Value Head (VH).
     Purpose: By constructing positive, negative, and incomplete samples, it enables the model to learn how to evaluate the state of the current combination.
     """
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     if self.split == 'train':
-    #         file_path = os.path.join(self.dataset_dir, 'anno', "compatibility_train.json")
-    #     else:
-    #         file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
-    #     with open(file_path, 'r') as f:
-    #         self.data = json.load(f)
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.split == 'train':
-            self.cat_to_indices = self.items_df.groupby('category').groups
-
-            self.pos_data = [{"items": x, "label": 1} for x in self.outfits]
-            self.neg_data = []
-            for sample in tqdm(self.pos_data, desc="Generating mixed neg outfits"):
-                items = sample['items']
-                for _ in range(2):
-                    self.neg_data.append({"items": self._generate_neg_v1(items), "label": 0})
-                    self.neg_data.append({"items": self._generate_neg_v2(items), "label": 0})
-
-            self.data = self.pos_data + self.neg_data
+            file_path = os.path.join(self.dataset_dir, 'anno', "compatibility_train.json")
         else:
             file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
-            with open(file_path, 'r') as f:
-                self.data = json.load(f)
+        with open(file_path, 'r') as f:
+            self.data = json.load(f)
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     if self.split == 'train':
+    #         self.cat_to_indices = self.items_df.groupby('category').groups
+
+    #         self.pos_data = [{"items": x, "label": 1} for x in self.outfits]
+    #         self.neg_data = []
+    #         for sample in tqdm(self.pos_data, desc="Generating mixed neg outfits"):
+    #             items = sample['items']
+    #             for _ in range(2):
+    #                 self.neg_data.append({"items": self._generate_neg_v1(items), "label": 0})
+    #                 self.neg_data.append({"items": self._generate_neg_v2(items), "label": 0})
+
+    #         self.data = self.pos_data + self.neg_data
+    #     else:
+    #         file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
+    #         with open(file_path, 'r') as f:
+    #             self.data = json.load(f)
 
     def _generate_neg_v1(self, item_idxs: list[int]) -> list[int]:
         """
@@ -160,8 +161,8 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
     def __getitem__(self, i: int) -> FashionCompatibilityData:
         sample = self.data[i]
         outfit = FashionOutfit(
-            outfit=[self.construct_item(iidx) for iidx in sample['items']]
-        )
+            outfit=[self.construct_item(iidx, include_image=True) for iidx in sample['items']]
+        )  # only for training resnet outfit transformer
         output = FashionCompatibilityData(
             label=sample['label'],
             query=outfit

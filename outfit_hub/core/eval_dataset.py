@@ -2,6 +2,7 @@
 import os
 import json
 import random
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -57,6 +58,23 @@ class FITBEvalDataset(BaseOutfitDataset):
             label=label,
             candidates=candidates
         )
+    
+    def get_retrieval_gallery_map(self, threshold=2999):
+        """
+        根据论文要求：
+        1. 筛选出样本数 >= 3000 的品类
+        2. 为每个品类预随机选出 2999 个干扰项索引
+        """
+        my_random = random.Random(0)
+        cat_to_indices = defaultdict(list)
+        for idx, cat in enumerate(self._categories):
+            cat_to_indices[cat].append(idx)
+        
+        gallery_map = {}
+        for cat, indices in cat_to_indices.items():
+            if len(indices) >= threshold:
+                gallery_map[cat] = my_random.sample(indices, threshold)
+        return gallery_map
 
 
 class CompEvalDataset(BaseOutfitDataset):

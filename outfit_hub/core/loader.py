@@ -1,5 +1,7 @@
 from torch.utils.data import ConcatDataset, DataLoader
 
+from ..utils.vector_db_utils import VectorDB
+
 
 def get_combined_loader(dataset_names, dataset_class, vector_db_dict, root_dir="./data", split='train', batch_size=32, num_workers=4, pin_memory=True, transform=None):
     """
@@ -9,8 +11,8 @@ def get_combined_loader(dataset_names, dataset_class, vector_db_dict, root_dir="
     datasets = []
     for ds_idx, name in enumerate(dataset_names):
         ds = dataset_class(
-            vector_db=vector_db_dict[name],
             root_dir=root_dir,
+            feature_path=vector_db_dict[name].feature_path,
             dataset_name=name, 
             dataset_idx=ds_idx,
             split=split,

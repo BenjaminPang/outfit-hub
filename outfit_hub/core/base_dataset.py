@@ -31,10 +31,10 @@ class BaseOutfitDataset(Dataset):
         self.dataset_idx = kwargs.get("dataset_idx", 0)
         
         # 加载标准表
-        items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
-        self._categories = items_df['category'].tolist()
+        self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
+        self._categories = self.items_df['category'].tolist()
         self.active_categories = list(set(self._categories))
-        self._descriptions = items_df['description'].fillna('').tolist()
+        self._descriptions = self.items_df['description'].fillna('').tolist()
 
         outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
         if split == "all":
@@ -84,12 +84,12 @@ class BaseOutfitDataset(Dataset):
             return self.features[item_idx]
         return None
         
-    def construct_item(self, iidx: int) -> FashionItem:
+    def construct_item(self, iidx: int, include_image=False) -> FashionItem:
         try:
             return FashionItem(
                 item_idx=iidx,
                 category=self._categories[iidx],
-                image=None,
+                image=self.get_image(iidx, return_tensor=False) if include_image else None,
                 description= self._descriptions[iidx],
                 embedding=self.get_feature(iidx)
             )
