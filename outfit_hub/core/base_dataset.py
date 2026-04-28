@@ -31,10 +31,12 @@ class BaseOutfitDataset(Dataset):
         self.dataset_idx = kwargs.get("dataset_idx", 0)
         
         # 加载标准表
-        self.items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
-        self._categories = self.items_df['category'].tolist()
+        items_df = pd.read_parquet(os.path.join(self.dataset_dir, "items.parquet"))
+        self.items_number = len(items_df)
+        self.cat_to_indices = items_df.groupby('category').groups
+        self._categories = items_df['category'].tolist()
         self.active_categories = list(set(self._categories))
-        self._descriptions = self.items_df['description'].fillna('').tolist()
+        self._descriptions = items_df['description'].fillna('').tolist()
 
         outfits_df = pd.read_parquet(os.path.join(self.dataset_dir, "outfits.parquet"))
         if split == "all":

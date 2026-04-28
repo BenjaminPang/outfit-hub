@@ -138,7 +138,8 @@ class OutfitGenerationEvalDataset(BaseOutfitDataset):
             # 安全采样：取 count 和 实际长度 的最小值
             self.samples.extend(pool[:1000])
 
-        # self.samples = self.samples[0:10] + self.samples[1000:1010] + self.samples[2000:2010] + self.samples[3000:3010] + self.samples[4000:4010] + self.samples[5000:5010]
+        # x = 2
+        # self.samples = self.samples[0:x] + self.samples[1000:1000+x] + self.samples[2000:2000+x] + self.samples[3000:3000+x] + self.samples[4000:4000+x] + self.samples[5000:5000+x]
 
     def __len__(self):
         return len(self.samples)

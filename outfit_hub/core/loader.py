@@ -28,5 +28,6 @@ def get_combined_loader(dataset_names, dataset_class, vector_db_dict, root_dir="
         shuffle=(split == "train"),
         collate_fn=dataset_class.collate_fn,
         num_workers=num_workers,
+        persistent_workers=True,
         pin_memory=pin_memory
     )

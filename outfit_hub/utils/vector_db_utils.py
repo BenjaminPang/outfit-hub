@@ -31,7 +31,7 @@ class VectorDB:
             collection_name (str): Unique identifier for the specific encoder/version. {dataset_name}__{encode_name}__{model_name}__{version}
             encode_fn (callable, optional): Model inference function. Only required in this function.
         """
-        batch_size = 5000
+        batch_size = 500
         db_path = os.path.join(data_root_dir, "vector_db")
         client = chromadb.PersistentClient(path=db_path)
         dist_mode = "cosine" if "clip" in collection_name.lower() else "l2"

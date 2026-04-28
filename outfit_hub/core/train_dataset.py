@@ -1,11 +1,11 @@
 import json
 import random
 import os
-
 from tqdm import tqdm
 
 from .base_dataset import BaseOutfitDataset
 from .datatypes import FashionOutfit, FashionCompatibilityData, FashionContrastivetData, FashionComplementaryQuery
+from ..utils.vector_db_utils import VectorDB
 
 
 class FashionItemPoolDataset(BaseOutfitDataset):
@@ -52,8 +52,7 @@ class NextItemPredictionDataset(BaseOutfitDataset):
         remaining_idxs = [iidx for iidx in item_idxs if iidx != answer_val]
         # k means how many remaining items serve as outfit query
         k = random.randint(1, len(remaining_idxs))
-        # chosen_context_idxs = random.sample(remaining_idxs, k)
-        chosen_context_idxs = remaining_idxs
+        chosen_context_idxs = random.sample(remaining_idxs, k)
         item_list = [self.construct_item(iidx) for iidx in chosen_context_idxs]
 
         output = FashionContrastivetData(
@@ -82,33 +81,37 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
     Value Function Dataset: Used to train the Value Head (VH).
     Purpose: By constructing positive, negative, and incomplete samples, it enables the model to learn how to evaluate the state of the current combination.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.split == 'train':
-            file_path = os.path.join(self.dataset_dir, 'anno', "compatibility_train.json")
-        else:
-            file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
-        with open(file_path, 'r') as f:
-            self.data = json.load(f)
-
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     #     if self.split == 'train':
-    #         self.cat_to_indices = self.items_df.groupby('category').groups
-
-    #         self.pos_data = [{"items": x, "label": 1} for x in self.outfits]
-    #         self.neg_data = []
-    #         for sample in tqdm(self.pos_data, desc="Generating mixed neg outfits"):
-    #             items = sample['items']
-    #             for _ in range(2):
-    #                 self.neg_data.append({"items": self._generate_neg_v1(items), "label": 0})
-    #                 self.neg_data.append({"items": self._generate_neg_v2(items), "label": 0})
-
-    #         self.data = self.pos_data + self.neg_data
+    #         file_path = os.path.join(self.dataset_dir, 'anno', "compatibility_train.json")
     #     else:
     #         file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
-    #         with open(file_path, 'r') as f:
-    #             self.data = json.load(f)
+    #     with open(file_path, 'r') as f:
+    #         self.data = json.load(f)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vector_db = VectorDB.setup_and_sync(
+            data_root_dir=self.root_dir,
+            dataset_name=self.dataset_name,
+            collection_name=os.path.basename(self.feature_path).split(".")[0].removeprefix('feat_'),
+            encode_fn=None
+        )
+        if self.split == 'train':
+            self.pos_data = [{"items": x, "label": 1} for x in self.outfits]
+            self.neg_data = []
+            for sample in tqdm(self.pos_data, desc="Generating mixed neg outfits"):
+                items = sample['items']
+                for _ in range(2):
+                    self.neg_data.append({"items": self._generate_neg_v1(items), "label": 0})
+                    self.neg_data.append({"items": self._generate_neg_v2(items), "label": 0})
+
+            self.data = self.pos_data + self.neg_data
+        else:
+            file_path = os.path.join(self.dataset_dir, "eval", f"compatibility_{self.split}.json")
+            with open(file_path, 'r') as f:
+                self.data = json.load(f)
 
     def _generate_neg_v1(self, item_idxs: list[int]) -> list[int]:
         """
@@ -154,14 +157,14 @@ class FashionCompatibilityPredictioneDataset(BaseOutfitDataset):
         
         # 降级处理：如果 DB 没搜够（虽然概率很低），用随机补齐
         while len(neg_outfit) < target_len:
-            neg_outfit.append(random.randint(0, len(self.items_df) - 1))
+            neg_outfit.append(random.randint(0, self.items_number - 1))
             
         return neg_outfit
 
     def __getitem__(self, i: int) -> FashionCompatibilityData:
         sample = self.data[i]
         outfit = FashionOutfit(
-            outfit=[self.construct_item(iidx, include_image=True) for iidx in sample['items']]
+            outfit=[self.construct_item(iidx, include_image=False) for iidx in sample['items']]
         )  # only for training resnet outfit transformer
         output = FashionCompatibilityData(
             label=sample['label'],
