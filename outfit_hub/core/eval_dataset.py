@@ -118,28 +118,30 @@ class OutfitGenerationEvalDataset(BaseOutfitDataset):
             all_item_idxs.update(item_idxs)
         self.item_pool = list(sorted(all_item_idxs))
 
-        category_map = {
-            "tops": [],
-            "bottoms": [],
-            "all-body": [],
-            "outerwear": [],
-            "shoes": [],
-            "accessories": [],
-        }
+        if "polyvore_outfits" in self.dataset_name:
+            category_map = {
+                "tops": [],
+                "bottoms": [],
+                "all-body": [],
+                "outerwear": [],
+                "shoes": [],
+                "accessories": [],
+            }
+            for iidx in all_item_idxs:
+                cat = str(self._categories[iidx])
+                if cat in category_map.keys():
+                    category_map[cat].append(iidx)
 
-        for iidx in all_item_idxs:
-            cat = str(self._categories[iidx])
-            if cat in category_map.keys():
-                category_map[cat].append(iidx)
+            self.samples = []
+            for cat, pool in category_map.items():
+                random.shuffle(pool)
+                # 安全采样：取 count 和 实际长度 的最小值
+                self.samples.extend(pool[:1000])
 
-        self.samples = []
-        for cat, pool in category_map.items():
-            random.shuffle(pool)
-            # 安全采样：取 count 和 实际长度 的最小值
-            self.samples.extend(pool[:1000])
-
-        # x = 2
-        # self.samples = self.samples[0:x] + self.samples[1000:1000+x] + self.samples[2000:2000+x] + self.samples[3000:3000+x] + self.samples[4000:4000+x] + self.samples[5000:5000+x]
+            # x = 2
+            # self.samples = self.samples[0:x] + self.samples[1000:1000+x] + self.samples[2000:2000+x] + self.samples[3000:3000+x] + self.samples[4000:4000+x] + self.samples[5000:5000+x]
+        elif "ifashion" == self.dataset_name:
+            self.samples = random.sample(self.item_pool, 1000)
 
     def __len__(self):
         return len(self.samples)
